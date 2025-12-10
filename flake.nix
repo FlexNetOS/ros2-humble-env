@@ -33,6 +33,7 @@
                 - -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
                 - -DPython_FIND_VIRTUALENV=ONLY
                 - -DPython3_FIND_VIRTUALENV=ONLY
+                - -Wno-dev
                 ${optionalString isDarwin "- -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON"}
           '';
         in
