@@ -4,20 +4,43 @@ a reproducible and declarative development environment for ros2 humble using nix
 
 ## overview
 
-this repository provides a complete development setup for ros2 humble with all necessary build tools and dependencies pre-configured. the environment seems to work properly both on linux and macos (x86 and arm64) using:
+this repository provides a complete development setup for ros2 humble with all necessary build tools and dependencies pre-configured. the environment works on linux, macos (x86 and arm64), and wsl2 using:
 
 - **nix flakes**: for reproducible, declarative environment setup
 - **pixi**: for python and ros package management via robostack
+- **neovim + lazyvim**: for ide functionality with ros2, python, c/c++, and web ui support
 - **direnv** (optional): for automatic environment activation
 
-## getting started
+## quick start
 
-### prerequisites
+### bootstrap (recommended)
+
+the easiest way to get started is using the bootstrap scripts:
+
+**linux/macos/wsl2:**
+```bash
+./bootstrap.sh
+```
+
+**windows (powershell/wsl2):**
+```powershell
+./bootstrap.ps1
+```
+
+these scripts will:
+1. verify nix is installed with flakes enabled
+2. enter the nix dev shell
+3. run pixi install to set up ros2 and dependencies
+4. provide clear error messages if prerequisites are missing
+
+### manual setup
+
+#### prerequisites
 
 - nix with flakes enabled
 - git
 
-### installing nix (if not already installed)
+#### installing nix (if not already installed)
 
 personally, i like to use the [experimental nix install script](https://github.com/NixOS/experimental-nix-installer):
 
@@ -58,30 +81,64 @@ or with `nom` for better build output:
 nom develop
 ```
 
-## adding packages
+## neovim ide setup
 
-the environment uses robostack to provide ros2 humble packages. to add a package:
+the development environment includes neovim with lazyvim for a complete ide experience. to set up lazyvim:
+
+1. enter the dev shell:
+   ```bash
+   nix develop
+   ```
+
+2. run the setup command:
+   ```bash
+   setup-lazyvim
+   ```
+
+3. launch neovim:
+   ```bash
+   nvim
+   ```
+
+lazyvim will automatically install plugins on first launch, including:
+- **lsp**: language server protocol support for ros2, python, c/c++
+- **treesitter**: advanced syntax highlighting
+- **telescope**: fuzzy finder for files and content
+- **git integration**: fugitive and gitsigns
+- **terminal**: integrated terminal support
+- **preview**: markdown and other file previews
+
+the configuration is stored in `~/.config/nvim` and can be customized to your needs.
+
+## shell policy
+
+**default interactive shell**: the development environment defaults to **bash/zsh** for interactive use. you can use your preferred interactive shell (bash, zsh, fish) as usual.
+
+**nushell for automation**: nushell is included specifically for automation and workflow scripts. it should be used non-interactively for scripting purposes.
+
+### using nushell for automation
+
+nushell is available in the dev shell for automation tasks:
 
 ```bash
-pixi add <PACKAGE_NAME>
+# example: non-interactive workflow command
+nu -c "ls | where type == file | get name"
+
+# example: batch processing ros2 packages
+nu -c "ls src | each { |pkg| echo $'Building ($pkg.name)' }"
+
+# example: environment inspection
+nu -c "env | where name =~ ROS"
 ```
 
-find available ros2-humble packages in the [robostack channel](https://robostack.github.io/humble.html).
+### using other shells interactively
 
-## using a different shell
-
-nix shells default to bash, but you can use your preferred shell. if you want to use a different shell (like zsh, fish, or nushell), you have a few options:
+if you want to use a different interactive shell (like zsh, fish, or nushell), you have a few options:
 
 ### manual approach
 
 ```bash
 nix develop -c env 'SHELL=<your-shell-path-here>' <your-shell-path-here>
-```
-
-for example, with nushell:
-
-```bash
-nix develop -c env 'SHELL=/bin/nu' /bin/nu
 ```
 
 ### create an alias
@@ -91,19 +148,6 @@ add this alias to your shell configuration for easier access:
 ```bash
 alias devshell="nix develop -c env 'SHELL=/bin/bash' /bin/bash"
 ```
-
-### nushell function
-
-if you use nushell, create this function in your `env.nu`:
-
-```nu
-def devshell [] {
-  let shell_path = "/bin/nu"
-  nix develop -c env $'SHELL=($shell_path)' $shell_path
-}
-```
-
-then simply run `devshell` to enter the environment with nushell.
 
 ## bash function
 
@@ -116,15 +160,25 @@ devshell() {
 }
 ```
 
-this should do the same as the nushell function defined above but for bash users.
+this should do the same as the alias defined above but as a function.
 
 ### with nom
 
 if you use nom for better nix output, replace `nix` with `nom`:
 
 ```bash
-nom develop -c env 'SHELL=/bin/nu' /bin/nu
+nom develop -c env 'SHELL=/bin/bash' /bin/bash
 ```
+
+## adding packages
+
+the environment uses robostack to provide ros2 humble packages. to add a package:
+
+```bash
+pixi add <PACKAGE_NAME>
+```
+
+find available ros2-humble packages in the [robostack channel](https://robostack.github.io/humble.html).
 
 ## environment details
 
@@ -134,6 +188,8 @@ the workspace includes:
 - **build tools**: cmake, ninja, make, compilers, pkg-config
 - **ros tools**: colcon, rosdep, catkin_tools
 - **python**: 3.11.x with development headers
+- **ide**: neovim with lazyvim, lsp, treesitter, telescope
+- **automation**: nushell for workflow scripts
 - **platforms**: supports linux-64, linux-aarch64, osx-64, osx-arm64
 
 ## workspace structure

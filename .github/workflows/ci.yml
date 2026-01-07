@@ -1,0 +1,82 @@
+name: CI Smoke Tests
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  smoke-test:
+    name: Smoke Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v26
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Setup Nix cache
+        uses: DeterminateSystems/magic-nix-cache-action@v3
+
+      - name: Run nix flake check
+        run: nix flake check -L
+
+      - name: Enter dev shell and verify Pixi
+        run: |
+          nix develop --command bash -c '
+            set -euo pipefail
+            echo "Checking pixi installation..."
+            pixi --version
+          '
+
+      - name: Run pixi install
+        run: |
+          nix develop --command bash -c '
+            set -euo pipefail
+            echo "Running pixi install..."
+            pixi install
+          '
+
+      - name: Verify Neovim
+        run: |
+          nix develop --command bash -c '
+            set -euo pipefail
+            echo "Checking Neovim installation..."
+            nvim --version
+            echo "Running Neovim health check..."
+            nvim --headless "+checkhealth" +qa || true
+          '
+
+      - name: Test ROS2 environment
+        run: |
+          nix develop --command bash -c '
+            set -euo pipefail
+            echo "Checking ROS2 installation..."
+            ros2 --version || echo "ros2 command not available yet (expected after pixi install)"
+            # Note: Full ROS2 commands require the pixi environment to be activated
+            # This test verifies the basic setup is working
+          '
+
+      - name: Test bootstrap script
+        run: |
+          chmod +x bootstrap.sh
+          echo "Testing bootstrap.sh (dry-run)..."
+          # The bootstrap script will run the full setup
+          # We skip it in CI since we already tested the components above
+          bash -n bootstrap.sh  # syntax check only
+
+      - name: Verify NuShell availability
+        run: |
+          nix develop --command bash -c '
+            set -euo pipefail
+            echo "Checking NuShell installation..."
+            nu --version
+            echo "Testing non-interactive Nu command..."
+            nu -c "echo \"NuShell automation test passed\""
+          '

@@ -19,3 +19,6 @@ rosdep = ">=0.26.0,<0.27"
 colcon-common-extensions = ">=0.3.0,<0.4"
 ros-humble-desktop = ">=0.10.0,<0.11"
 catkin_tools = ">=0.8.2,<0.10"
+
+# Shell for automation/workflows (non-interactive)
+nushell = ">=0.99.0,<1.0"

@@ -36,6 +36,21 @@
                 - -Wno-dev
                 ${optionalString isDarwin "- -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON"}
           '';
+
+          # LazyVim setup script
+          lazyvimSetup = pkgs.writeShellScript "setup-lazyvim.sh" ''
+            NVIM_CONFIG="$HOME/.config/nvim"
+            
+            if [ ! -d "$NVIM_CONFIG" ]; then
+              echo "Setting up LazyVim..."
+              git clone https://github.com/LazyVim/starter "$NVIM_CONFIG"
+              rm -rf "$NVIM_CONFIG/.git"
+              echo "LazyVim starter cloned to $NVIM_CONFIG"
+              echo "Run 'nvim' to complete the setup."
+            else
+              echo "Neovim config already exists at $NVIM_CONFIG"
+            fi
+          '';
         in
         {
           devshells.default = {
@@ -48,6 +63,21 @@
             devshell = {
               packages = with pkgs; [
                 pixi
+                neovim
+                git
+                gcc
+                gnumake
+                ripgrep
+                fd
+                nodejs
+                tree-sitter
+              ];
+              commands = [
+                {
+                  name = "setup-lazyvim";
+                  help = "Initialize LazyVim configuration";
+                  command = toString lazyvimSetup;
+                }
               ];
               startup.activate.text = ''
                 if [ -f pixi.toml ]; then
