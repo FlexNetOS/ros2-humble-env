@@ -76,6 +76,30 @@ echo 'eval "$(direnv hook bash)"' >> ~/.bashrc  # or ~/.zshrc for zsh
 
 after installing direnv, restart your shell or source your shell config file.
 
+#### installing git (if not already installed)
+
+git is required to clone this repository and is used by the LazyVim setup:
+
+**macos:**
+```bash
+brew install git
+```
+
+**ubuntu/debian:**
+```bash
+sudo apt install git
+```
+
+**fedora:**
+```bash
+sudo dnf install git
+```
+
+**arch linux:**
+```bash
+sudo pacman -S git
+```
+
 #### installing nix (if not already installed)
 
 personally, i like to use the [experimental nix install script](https://github.com/NixOS/experimental-nix-installer):
