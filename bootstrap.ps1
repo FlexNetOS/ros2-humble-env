@@ -134,7 +134,7 @@ if ! command -v pixi &> /dev/null; then
     exit 1
 fi
 
-echo 'Pixi version: `$(pixi --version)`'
+echo 'Pixi version: \$(pixi --version)'
 echo ''
 echo 'Running pixi install...'
 pixi install
