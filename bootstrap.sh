@@ -125,6 +125,31 @@ main() {
         pixi install
         
         echo ""
+        echo "Verifying installation..."
+        
+        # Verify ROS2 is available
+        if command -v ros2 &> /dev/null; then
+            echo "✓ ROS2 command available"
+            ros2 --version
+        else
+            echo "WARNING: ros2 command not found in PATH" >&2
+        fi
+        
+        # Verify Python is available
+        if command -v python &> /dev/null; then
+            echo "✓ Python available: $(python --version)"
+        else
+            echo "WARNING: python command not found" >&2
+        fi
+        
+        # Verify NuShell for automation
+        if command -v nu &> /dev/null; then
+            echo "✓ NuShell available: $(nu --version)"
+        else
+            echo "WARNING: nushell not found" >&2
+        fi
+        
+        echo ""
         echo "Bootstrap completed successfully!"
         echo ""
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
