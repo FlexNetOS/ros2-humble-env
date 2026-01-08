@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'bootstrap.sh'
+      - 'bootstrap.ps1'
       - 'flake.nix'
       - 'flake.lock'
       - 'pixi.toml'
@@ -126,8 +127,79 @@ jobs:
           nix develop --command pixi run python --version
           nix develop --command pixi run cmake --version
 
+  bootstrap-windows:
+    name: Bootstrap Test (Windows - Syntax Check)
+    runs-on: windows-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate PowerShell script syntax
+        shell: pwsh
+        run: |
+          $errors = $null
+          $ast = [System.Management.Automation.Language.Parser]::ParseFile(
+            "$env:GITHUB_WORKSPACE\bootstrap.ps1",
+            [ref]$null,
+            [ref]$errors
+          )
+
+          if ($errors.Count -gt 0) {
+            Write-Host "PowerShell syntax errors found:" -ForegroundColor Red
+            $errors | ForEach-Object { Write-Host $_.Message -ForegroundColor Red }
+            exit 1
+          }
+
+          Write-Host "PowerShell script syntax is valid" -ForegroundColor Green
+
+      - name: Check PowerShell best practices
+        shell: pwsh
+        run: |
+          # Install PSScriptAnalyzer if not present
+          if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer)) {
+            Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
+          }
+
+          # Run analysis
+          $results = Invoke-ScriptAnalyzer -Path bootstrap.ps1 -Severity Error,Warning
+
+          if ($results) {
+            Write-Host "PSScriptAnalyzer findings:" -ForegroundColor Yellow
+            $results | Format-Table -AutoSize
+
+            # Only fail on errors, not warnings
+            $errorCount = ($results | Where-Object { $_.Severity -eq 'Error' }).Count
+            if ($errorCount -gt 0) {
+              Write-Host "Found $errorCount error(s)" -ForegroundColor Red
+              exit 1
+            }
+          }
+
+          Write-Host "PowerShell script analysis passed" -ForegroundColor Green
+
+      - name: Verify script help documentation
+        shell: pwsh
+        run: |
+          # Check that help documentation exists
+          $help = Get-Help .\bootstrap.ps1 -Full
+
+          if (-not $help.Synopsis) {
+            Write-Host "Warning: Script missing synopsis" -ForegroundColor Yellow
+          }
+
+          if (-not $help.Description) {
+            Write-Host "Warning: Script missing description" -ForegroundColor Yellow
+          }
+
+          Write-Host "Script parameters:" -ForegroundColor Cyan
+          $help.Parameters.Parameter | ForEach-Object {
+            Write-Host "  -$($_.Name): $($_.Description.Text)"
+          }
+
   bootstrap-script-test:
-    name: Bootstrap Script Test
+    name: Bootstrap Script Test (Linux)
     runs-on: ubuntu-latest
     timeout-minutes: 60
 

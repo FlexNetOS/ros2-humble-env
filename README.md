@@ -1,10 +1,21 @@
 # Riple Environment and Binary Creation
 
-- Uses the original environment template setup from "ros2-humble-env" to create a wsl2 distro.
-- A reproducible and declarative development environment for ros2 humble using nix flakes and pixi for cross-platform compatibility.
-- This repository is meant to be used as a "template" repository for robotics projects to offer an easy starting environment with a working ros2 install.
+- Uses the original environment template setup from "ros2-humble-env" to create a WSL2 distro.
+- A reproducible and declarative development environment for ROS2 Humble using Nix flakes and pixi for cross-platform compatibility.
+- This repository is meant to be used as a "template" repository for robotics projects to offer an easy starting environment with a working ROS2 install.
 
 ## Quick Start
+
+### Windows (WSL2 + NixOS)
+
+```powershell
+# Run PowerShell as Administrator
+# Download and run the bootstrap script
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/FlexNetOS/ros2-humble-env/main/bootstrap.ps1" -OutFile "bootstrap.ps1"
+.\bootstrap.ps1
+```
+
+### Linux / macOS
 
 ```bash
 # Clone the repository
@@ -20,33 +31,71 @@ nom develop
 
 ## Goal
 
-- A single script run from Windows PowerShell that checks for Linux and WSL2 install, then installs and updates them as needed.
-- Creates the NixOS Distro, registers it, creates the ext4.vhdx hard disk image 1TB, and swap image.
-- Loads the nix flake and configurations per direnv
-- Sets up pixi package manager, tools, and packages
-- Adds zsh and nushell (bash stays default with nix)
-- Uses nom instead of nix
-- Installs git and gh cli
+- ✅ A single script run from Windows PowerShell that checks for Linux and WSL2 install, then installs and updates them as needed.
+- ✅ Creates the NixOS Distro, registers it, creates the ext4.vhdx hard disk image 1TB, and swap image.
+- ✅ Loads the nix flake and configurations per direnv
+- ✅ Sets up pixi package manager, tools, and packages
+- ✅ Adds zsh and nushell (bash stays default with nix)
+- ✅ Uses nom instead of nix
+- ✅ Installs git and gh cli
 
 ## Overview
 
-This repository provides a complete development setup for ros2 humble with all necessary build tools and dependencies pre-configured. The environment works on both Linux and macOS (x86 and arm64) using:
+This repository provides a complete development setup for ROS2 Humble with all necessary build tools and dependencies pre-configured. The environment works on:
 
-- **nix flakes**: for reproducible, declarative environment setup
-- **pixi**: for python and ros package management via robostack
+- **Windows** (via WSL2 + NixOS)
+- **Linux** (native, x86_64 and aarch64)
+- **macOS** (x86_64 and arm64)
+
+Using:
+- **Nix flakes**: for reproducible, declarative environment setup
+- **pixi**: for Python and ROS package management via RoboStack
 - **direnv**: for automatic environment activation
 - **home-manager modules**: for comprehensive shell and editor configuration
 
 ## Getting Started
 
-### Prerequisites
+### Windows Installation (Recommended for Windows users)
 
-- Nix with flakes enabled
-- Git >= 2.19.0
+The PowerShell bootstrap script (`bootstrap.ps1`) automates the entire setup:
 
-### Bootstrap Script (Recommended)
+```powershell
+# Option 1: Run directly (requires Administrator)
+Set-ExecutionPolicy Bypass -Scope Process -Force
+.\bootstrap.ps1
 
-The easiest way to get started is using the bootstrap script:
+# Option 2: With custom options
+.\bootstrap.ps1 -DistroName "MyROS2" -DiskSizeGB 512 -SwapSizeGB 16
+```
+
+**What it does:**
+1. Checks Windows version (requires build 19041+)
+2. Enables WSL2 and Virtual Machine Platform
+3. Downloads and imports NixOS-WSL distribution
+4. Creates 1TB ext4.vhdx virtual disk
+5. Configures swap (default 8GB)
+6. Runs the Linux bootstrap script inside WSL
+7. Sets up the complete ROS2 environment
+
+**Parameters:**
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `-DistroName` | NixOS-ROS2 | Name for the WSL distribution |
+| `-InstallPath` | `$HOME\WSL\NixOS-ROS2` | Installation directory |
+| `-DiskSizeGB` | 1024 | Virtual disk size (1TB) |
+| `-SwapSizeGB` | 8 | Swap size in GB |
+| `-SkipWSLCheck` | false | Skip WSL installation check |
+| `-Force` | false | Replace existing distro |
+
+**After installation:**
+```powershell
+# Enter the environment
+wsl -d NixOS-ROS2
+cd ~/ros2-humble-env
+direnv allow  # or: nom develop
+```
+
+### Linux / macOS Installation
 
 ```bash
 ./bootstrap.sh
@@ -96,7 +145,8 @@ ros2-humble-env/
 ├── flake.lock             # Locked dependency versions
 ├── pixi.toml              # Pixi workspace definition
 ├── pixi.lock              # Pixi locked dependencies
-├── bootstrap.sh           # End-to-end setup script
+├── bootstrap.sh           # Linux/macOS bootstrap script
+├── bootstrap.ps1          # Windows PowerShell bootstrap script
 ├── .envrc                 # Direnv configuration
 ├── .github/
 │   └── workflows/
@@ -138,7 +188,7 @@ ros2-humble-env/
 The workspace includes:
 
 ### Core Tools
-- **ROS**: ros-humble-desktop with all core ros packages
+- **ROS**: ros-humble-desktop with all core ROS packages
 - **Build tools**: cmake, ninja, make, compilers, pkg-config
 - **ROS tools**: colcon, rosdep, catkin_tools
 - **Python**: 3.11.x with development headers
@@ -150,7 +200,7 @@ The workspace includes:
 - **Utilities**: bat, eza, ripgrep, fd, jq, yq
 
 ### Platforms
-- linux-64, linux-aarch64, osx-64, osx-arm64
+- Windows (WSL2), linux-64, linux-aarch64, osx-64, osx-arm64
 
 ## Quick Commands
 
@@ -235,12 +285,40 @@ pixi add pygame
 ### Nix Packages
 Add to `flake.nix` in the `commonPackages` list.
 
+## Troubleshooting
+
+### Windows/WSL2
+
+**WSL2 not available:**
+- Ensure Windows 10 version 2004+ or Windows 11
+- Run `wsl --install` manually if needed
+- Restart after enabling WSL features
+
+**Disk space issues:**
+- The default 1TB vhdx is sparse (only uses actual data size)
+- Reduce with `-DiskSizeGB 256` if needed
+
+**Performance tips:**
+- Store projects inside WSL filesystem (`/home/user/`)
+- Avoid accessing Windows drives (`/mnt/c/`) for builds
+
+### Linux/macOS
+
+**Nix installation issues:**
+- Check https://github.com/DeterminateSystems/nix-installer
+- Ensure curl and bash are available
+
+**Flake errors:**
+- Run `nix flake update` to refresh dependencies
+- Check `nix flake check` for validation
+
 ## Links
 
 - [RoboStack ROS2-humble packages](https://robostack.github.io/humble.html)
 - [Pixi documentation](https://pixi.sh)
 - [Nix flakes documentation](https://nixos.wiki/wiki/Flakes)
 - [ROS2 Humble documentation](https://docs.ros.org/en/humble/)
+- [NixOS-WSL](https://github.com/nix-community/NixOS-WSL)
 - [Flake-parts devshell documentation](https://flake.parts/options/devshell.html)
 - [Home-manager documentation](https://nix-community.github.io/home-manager/)
 
