@@ -72,6 +72,14 @@ This enables conda post-link scripts required for ROS package activation.
 | ROS Core | `ros-humble-desktop >=0.10.0` |
 | Channels | `robostack-humble`, `conda-forge` |
 
+**ROS2 Jazzy Upgrade Path (2025+):**
+RoboStack now supports ROS2 Jazzy via `robostack-jazzy` channel. To add Jazzy as a feature:
+```bash
+pixi workspace channel add https://prefix.dev/robostack-jazzy --feature jazzy
+pixi workspace environment add jazzy --feature jazzy
+pixi add ros-jazzy-ros-base --feature jazzy
+```
+
 ---
 
 ## Tool Analysis Matrix
@@ -83,10 +91,16 @@ This enables conda post-link scripts required for ROS package activation.
 |--------|---------|
 | **Description** | AI pair programming in terminal with Git integration |
 | **Key Features** | 100+ languages, repo mapping, auto-commits, voice-to-code |
-| **Model Support** | GPT-4o, Claude 3.5/3.7 Sonnet, DeepSeek, Ollama |
+| **Model Support** | Claude 3.7 Sonnet, DeepSeek R1/V3, OpenAI o1/o3-mini/GPT-4o, Grok-4, local models |
 | **Conflict Status** | ✅ **NO CONFLICT** - Additive tool |
 | **Nix Package** | `pkgs.aider-chat` available in nixpkgs |
 | **Integration Notes** | Works alongside any editor; can add to devshell packages |
+
+**Recent Features (Jan 2026):**
+- `--thinking-tokens` CLI option for models with thinking capability
+- `/architect` mode for planning, `/ask` for questions
+- In-code `AI?` comments for inline assistance
+- Aider wrote 72% of its own code in recent releases
 
 **Upgrade Path (flake-parts/devshell syntax):**
 ```nix
@@ -104,6 +118,14 @@ devshells.default.devshell.packages = with pkgs; [
 | **Nix Status** | `zed-editor` in nixpkgs 24.11+; official flake available |
 | **Conflict Status** | ✅ **NO CONFLICT** - Optional editor choice |
 | **Requirements** | Hardware-accelerated Vulkan (use nixGL if needed) |
+| **Latest Version** | v0.217.4 (Jan 5, 2026) |
+
+**2025-2026 AI Updates:**
+- **Zeta**: Open-source, open-dataset edit prediction model
+- **ACP (Agent Connection Protocol)**: Connect any agent to Zed
+- **Multibuffer review**: Review agent changes across files
+- **Agent following**: Watch agent work live
+- Worktree trust mechanism (Jan 7, 2026)
 
 **Nix Integration:**
 ```nix
@@ -158,15 +180,35 @@ devshells.default.devshell.packages = with pkgs; [
 | **Conflict Status** | ✅ **COMPLEMENTARY** - Different use case |
 | **Integration** | Could add `.devcontainer/devcontainer.json` for remote dev |
 
-**Upgrade Path:**
+**⚠️ Known Issue:** Nix flake builds in devcontainers can be slow (hours vs seconds on bare metal). Use binary caches or pre-built images.
+
+**Recommended devcontainer.json for Nix + ROS2:**
+```json
+{
+  "name": "ros2-humble-env",
+  "image": "ghcr.io/lucernae/devcontainer-nix/nix:1",
+  "features": {
+    "ghcr.io/devcontainers/features/nix:1": {
+      "extraNixConfig": "experimental-features = nix-command flakes\nsandbox = true"
+    }
+  },
+  "mounts": [
+    "source=nix-store,target=/nix,type=volume"
+  ],
+  "postCreateCommand": "direnv allow && nix develop --command true",
+  "customizations": {
+    "vscode": {
+      "extensions": ["mkhl.direnv", "jnoortheen.nix-ide"]
+    }
+  }
+}
 ```
-ros2-humble-env/
-├── .devcontainer/
-│   └── devcontainer.json  # NEW: Enable DevPod/Codespaces
-├── flake.nix
-├── pixi.toml
-└── ...
-```
+
+**Best Practices (2025):**
+- Mount `/nix` as named volume for caching
+- Use direnv + flakes (not Dockerfile RUN commands)
+- Pre-populate Nix store from binary cache
+- Consider [xtruder/nix-devcontainer](https://github.com/xtruder/nix-devcontainer) for Swiss-army-knife setup
 
 ---
 
@@ -248,10 +290,17 @@ ros2-humble-env/
 | Aspect | Details |
 |--------|---------|
 | **Description** | All-in-one LLM CLI: Shell assistant, REPL, RAG, agents |
-| **Stars** | Growing rapidly (featured tool) |
-| **Provider Support** | 20+ providers: OpenAI, Claude, Gemini, Ollama, Groq, etc. |
+| **Latest Version** | v0.30.0 |
+| **Provider Support** | 100+ LLMs across 20+ providers: OpenAI, Claude, Gemini, Ollama, Groq, DeepSeek, XAI Grok, etc. |
 | **Conflict Status** | ✅ **NO CONFLICT** - Additive CLI tool |
 | **Nix Package** | `pkgs.aichat` available |
+
+**Key Features (2025+):**
+- Shell auto-completion with AI
+- Custom macros for repetitive tasks
+- Local API server (OpenAI-compatible)
+- LLM Playground/Arena WebUI
+- RAG for document integration
 
 **Recommendation:** Ship in foundation dev shell as lightweight AI CLI.
 
@@ -397,13 +446,52 @@ nix develop .#full       # all tools
 
 ---
 
+## Security Considerations (2025 Best Practices)
+
+### Nix Flake Security
+
+| Practice | Recommendation |
+|----------|----------------|
+| **Trusted Users** | Adding user to `trusted-users` = root access. Use sparingly. |
+| **Binary Caches** | Prefer private caches over `cache.nixos.org` for sensitive projects |
+| **Nixpkgs Source** | Always use official NixOS/nixpkgs, not forks |
+| **Release Branches** | Use supported branches (stop receiving updates ~7 months after release) |
+| **Sandboxing** | Keep `sandbox = true` in nix.conf (default) |
+
+### Flake Input Verification
+```nix
+# Ensure inputs are from trusted sources
+inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";  # Official only
+```
+
+### Runtime Sandboxing Options
+- **[NixPak](https://github.com/nixpak/nixpak)**: Declarative bwrap wrapper for app sandboxing
+- **[Nixwrap](https://github.com/rti/nixwrap)**: Easy sandboxing for common use cases
+- **boxxy**: XDG path redirection (already in analysis)
+
+### Pixi Security
+The `run-post-link-scripts = "insecure"` setting in `.pixi/config.toml` allows conda post-link scripts to run. This is required for ROS but be aware:
+- Only use trusted channels (`robostack-humble`, `conda-forge`)
+- Review scripts in unfamiliar packages
+
+### AI Tool Security
+| Tool | Consideration |
+|------|---------------|
+| aichat | API keys stored in `~/.config/aichat/config.yaml` - protect with permissions |
+| Aider | Git commits are automatic - review before pushing |
+| cc-mirror | Isolated instances help contain API key exposure |
+
+---
+
 ## Sources
 
 ### AI Coding Assistants
 - [Aider GitHub](https://github.com/Aider-AI/aider)
 - [Aider Documentation](https://aider.chat/docs/)
+- [Aider Release History](https://aider.chat/HISTORY.html)
 - [Zed Editor](https://zed.dev/)
-- [Zed Agentic Editing](https://zed.dev/agentic)
+- [Zed 2025 Recap](https://zed.dev/2025)
+- [Zed Stable Releases](https://zed.dev/releases/stable)
 - [Zed NixOS Wiki](https://wiki.nixos.org/wiki/Zed)
 
 ### Environment Tools
@@ -411,6 +499,15 @@ nix develop .#full       # all tools
 - [mise vs asdf comparison](https://mise.jdx.dev/dev-tools/comparison-to-asdf.html)
 - [DevPod](https://devpod.sh/)
 - [DevPod GitHub](https://github.com/loft-sh/devpod)
+- [lucernae/devcontainer-nix](https://github.com/lucernae/devcontainer-nix)
+- [xtruder/nix-devcontainer](https://github.com/xtruder/nix-devcontainer)
+
+### ROS2 + Nix
+- [nix-ros-overlay](https://github.com/lopsided98/nix-ros-overlay)
+- [RoboStack](https://robostack.github.io/)
+- [RoboStack ros-jazzy](https://github.com/RoboStack/ros-jazzy)
+- [pixi-build-ros backend](https://prefix-dev.github.io/pixi-build-backends/backends/pixi-build-ros/)
+- [Using Pixi for ROS 2 Dev (2025)](https://jafarabdi.github.io/blog/2025/ros2-pixi-dev/)
 
 ### Dotfile Management
 - [chezmoi](https://www.chezmoi.io/)
@@ -420,9 +517,21 @@ nix develop .#full       # all tools
 
 ### AI CLI Tools
 - [aichat GitHub](https://github.com/sigoden/aichat)
+- [aichat Docs.rs](https://docs.rs/crate/aichat/latest)
 - [cc-mirror GitHub](https://github.com/numman-ali/cc-mirror)
 
 ### Neovim Plugins
 - [live-preview.nvim](https://github.com/brianhuster/live-preview.nvim)
 - [peek.nvim](https://github.com/toppair/peek.nvim)
 - [LazyVim Markdown](http://www.lazyvim.org/extras/lang/markdown)
+
+### Security & Best Practices
+- [Nix Best Practices at Work](https://determinate.systems/blog/best-practices-for-nix-at-work/)
+- [Nix Flake Checker](https://determinate.systems/blog/flake-checker/)
+- [NixPak Runtime Sandboxing](https://github.com/nixpak/nixpak)
+- [NixOS Security Wiki](https://nixos.wiki/wiki/Security)
+- [Nix Flakes Explained (2025)](https://determinate.systems/blog/nix-flakes-explained/)
+
+---
+
+*Last updated: January 2026*
