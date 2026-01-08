@@ -62,7 +62,9 @@
             if [ ! -d "$NVIM_CONFIG" ]; then
               echo "Setting up LazyVim..."
               git clone https://github.com/LazyVim/starter "$NVIM_CONFIG"
-              rm -rf "$NVIM_CONFIG/.git"
+              if [ -d "$NVIM_CONFIG/.git" ]; then
+                rm -rf "$NVIM_CONFIG/.git"
+              fi
               echo "LazyVim starter cloned to $NVIM_CONFIG"
               echo "Run 'nvim' to complete the setup."
             else
