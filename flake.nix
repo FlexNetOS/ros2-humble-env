@@ -99,6 +99,13 @@
             jq
             yq
 
+            # Archive/Network (explicit for tree-sitter)
+            gnutar
+            curl
+            wget
+            unzip
+            gzip
+
             # Directory navigation
             zoxide
             direnv
@@ -117,6 +124,28 @@
 
             # Prompt
             starship
+
+            # AI assistants
+            aichat
+            aider-chat
+
+            # Audio (for aider voice features)
+            portaudio
+
+            # Build tools & compilation cache
+            ccache              # Fast C/C++ compilation cache
+            sccache             # Distributed compilation cache (cloud support)
+            mold                # Fast modern linker (12x faster than lld)
+
+            # Tree-sitter (for LazyVim/Neovim)
+            tree-sitter
+
+            # Node.js ecosystem (for LazyVim plugins)
+            nodejs_22           # LTS "Jod" - active until Apr 2027
+            nodePackages.pnpm
+
+            # Git tools
+            lazygit             # Git TUI (integrates with LazyVim)
           ];
 
           # Linux-specific packages
@@ -175,6 +204,102 @@
               echo "  pixi   - package manager"
               echo ""
             '';
+          devshells.default = {
+            env = [
+              {
+                name = "COLCON_DEFAULTS_FILE";
+                value = toString colconDefaults;
+              }
+              {
+                name = "EDITOR";
+                value = "hx";
+              }
+              {
+                name = "VISUAL";
+                value = "hx";
+              }
+            ];
+
+            devshell = {
+              packages = commonPackages ++ linuxPackages ++ darwinPackages;
+
+              startup.activate.text = ''
+                # Initialize pixi environment
+                if [ -f pixi.toml ]; then
+                  ${optionalString isDarwin ''
+                    export DYLD_FALLBACK_LIBRARY_PATH="$PWD/.pixi/envs/default/lib:$DYLD_FALLBACK_LIBRARY_PATH"
+                  ''}
+                  eval "$(pixi shell-hook)"
+                fi
+
+                # Initialize direnv
+                eval "$(direnv hook bash)"
+
+                # Initialize zoxide
+                eval "$(zoxide init bash)"
+
+                # Initialize starship prompt
+                eval "$(starship init bash)"
+
+                # ROS2 environment info
+                echo ""
+                echo "🤖 ROS2 Humble Development Environment"
+                echo "======================================"
+                echo "  Platform: ${if isDarwin then "macOS" else "Linux"} (${system})"
+                echo "  Shell: bash (use 'zsh' or 'nu' for other shells)"
+                echo ""
+                echo "Quick commands:"
+                echo "  cb     - colcon build --symlink-install"
+                echo "  ct     - colcon test"
+                echo "  pixi   - package manager"
+                echo ""
+                echo "AI assistants:"
+                echo "  ai     - AI chat (aichat, lightweight)"
+                echo "  pair   - AI pair programming (aider, git-integrated)"
+                echo ""
+              '';
+
+              motd = "";
+            };
+
+            # Command aliases
+            commands = [
+              {
+                name = "cb";
+                help = "colcon build --symlink-install";
+                command = "colcon build --symlink-install $@";
+              }
+              {
+                name = "ct";
+                help = "colcon test";
+                command = "colcon test $@";
+              }
+              {
+                name = "ctr";
+                help = "colcon test-result --verbose";
+                command = "colcon test-result --verbose";
+              }
+              {
+                name = "ros2-env";
+                help = "Show ROS2 environment variables";
+                command = "env | grep -E '^(ROS|RMW|AMENT|COLCON)' | sort";
+              }
+              {
+                name = "update-deps";
+                help = "Update pixi dependencies";
+                command = "pixi update";
+              }
+              {
+                name = "ai";
+                help = "AI chat assistant (provider-agnostic)";
+                command = "aichat $@";
+              }
+              {
+                name = "pair";
+                help = "AI pair programming with git integration (aider)";
+                command = "aider $@";
+              }
+            ];
           };
 
           # Minimal shell for CI
