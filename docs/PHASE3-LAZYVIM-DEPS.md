@@ -156,32 +156,70 @@ git clone https://github.com/LazyVim/starter ~/.config/nvim
 
 | Dependency | Required | Currently Have | Action |
 |------------|----------|----------------|--------|
-| C Compiler | ✅ | ✅ (pixi) | Add to Nix for non-pixi use |
-| LuaJIT | ✅ | ✅ (in neovim) | None |
+| C/C++ Compiler | ✅ | ✅ (pixi `compilers`) | ✅ Done |
+| tar | ✅ | ✅ (pixi + nix) | ✅ Added |
+| curl | ✅ | ✅ (pixi + nix) | ✅ Added |
+| LuaJIT | ✅ | ✅ (in neovim) | None needed |
 | Nerd Fonts | ✅ | ❌ | Add optional package |
-| Node.js | Optional | ❌ | Add for plugin support |
-| ripgrep | ✅ | ✅ | None |
-| fd | ✅ | ✅ | None |
-| lazygit | Optional | ❌ | Add to packages |
-| tree-sitter CLI | Optional | ❌ | Add for manual builds |
+| Node.js | ✅ | ✅ (pixi + nix) | ✅ Added nodejs_20 |
+| pnpm | ✅ | ✅ (pixi + nix) | ✅ Added |
+| ripgrep | ✅ | ✅ | None needed |
+| fd | ✅ | ✅ | None needed |
+| tree-sitter CLI | ✅ | ✅ (nix) | ✅ Added |
+| ccache | Optional | ✅ (pixi + nix) | ✅ Added |
+| sccache | Optional | ✅ (pixi + nix) | ✅ Added |
+| mold (fast linker) | Optional | ✅ (nix) | ✅ Added |
+| lazygit | Optional | ✅ (nix) | ✅ Added |
 
-## Recommended Packages to Add
+## Already Added Packages
+
+The following packages have been added to support tree-sitter and LazyVim:
 
 ```nix
-# For Phase 3 LazyVim support
+# flake.nix / packages.nix - Already included:
 commonPackages = with pkgs; [
-  # Existing packages...
+  # Archive/Network (explicit for tree-sitter)
+  gnutar
+  curl
+  wget
+  unzip
+  gzip
 
-  # Editor support (Phase 3)
-  gcc                   # C compiler for treesitter
-  nodejs_20             # For plugins requiring Node
-  lazygit               # Git TUI (useful with/without neovim)
-  tree-sitter           # Syntax parser CLI
+  # Build tools & compilation cache
+  ccache              # Fast C/C++ compilation cache
+  sccache             # Distributed compilation cache (cloud support)
+  mold                # Fast modern linker (12x faster than lld)
 
-  # Fonts (optional, large package)
-  # (nerdfonts.override { fonts = [ "JetBrainsMono" ]; })
+  # Tree-sitter (for LazyVim/Neovim)
+  tree-sitter
+
+  # Node.js ecosystem (for LazyVim plugins)
+  nodejs_20
+  nodePackages.pnpm
 ];
 ```
+
+```toml
+# pixi.toml - Already included:
+ccache = ">=4.10,<5"
+sccache = ">=0.8,<1"
+tar = ">=1.34"
+curl = ">=8.0"
+nodejs = ">=20.0,<21"
+pnpm = ">=9.0"
+```
+
+## Still Needed for Full LazyVim
+
+```nix
+# Optional additions for complete LazyVim experience:
+
+# Fonts (optional, large package - ~500MB for single font)
+# User should install Nerd Fonts manually or add:
+(nerdfonts.override { fonts = [ "JetBrainsMono" ]; })
+```
+
+**Note:** lazygit is now included in the devshell.
 
 ## Plugins Mentioned in User Notes
 

@@ -42,7 +42,8 @@ in
     curl               # HTTP client
     wget               # Download tool
 
-    # Archive tools
+    # Archive tools (explicit for tree-sitter)
+    gnutar             # GNU tar
     unzip
     zip
     gzip
@@ -53,6 +54,21 @@ in
 
     # Build tools (supplementary to pixi)
     pkg-config
+    ccache             # Fast C/C++ compilation cache
+    sccache            # Distributed compilation cache
+
+    # Fast linker
+    mold               # Modern linker (12x faster than lld)
+
+    # Tree-sitter (for Neovim/LazyVim)
+    tree-sitter
+
+    # Node.js ecosystem (for LazyVim plugins)
+    nodejs_20
+    nodePackages.pnpm
+
+    # Git tools
+    lazygit            # Git TUI (integrates with LazyVim)
 
     # AI assistants
     aichat             # Provider-agnostic AI CLI
