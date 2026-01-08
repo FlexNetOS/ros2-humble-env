@@ -57,8 +57,8 @@ Invoke-WebRequest -Uri https://github.com/actions/runner/releases/download/v2.31
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 [System.IO.Compression.ZipFile]::ExtractToDirectory("$PWD\actions-runner-win-x64.zip", "$PWD")
 
-# Configure the runner
-.\config.cmd --url https://github.com/FlexNetOS/ros2-humble-env --token YOUR_TOKEN_HERE
+# Configure the runner (use your repo URL)
+.\config.cmd --url https://github.com/<OWNER>/<REPO> --token YOUR_TOKEN_HERE
 ```
 
 ## Step 3: Add Required Labels

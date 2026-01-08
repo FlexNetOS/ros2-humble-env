@@ -274,7 +274,7 @@ The modules can be imported into other flakes:
   outputs = { self, ros2-humble-env, home-manager, ... }: {
     homeConfigurations.myuser = home-manager.lib.homeManagerConfiguration {
       modules = [
-        ros2-humble-env.homeManagerModules.default
+        ros2-humble-env.lib.homeManagerModules.default
         # Your other modules...
       ];
     };

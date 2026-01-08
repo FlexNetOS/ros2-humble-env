@@ -334,9 +334,14 @@ verify_environment() {
         exit 1
     fi
 
-    # Verify flake
+    # Verify flake (fail hard if it doesn't evaluate)
     log_info "Checking flake..."
-    nix flake check --no-build 2>/dev/null || nix flake show
+    if ! nix flake check --no-build --all-systems; then
+        log_error "nix flake check failed"
+        log_info "flake output (for debugging):"
+        nix flake show || true
+        exit 1
+    fi
 
     # Build the devshell (this validates the configuration)
     log_info "Building development shell..."
@@ -421,7 +426,11 @@ main() {
     install_nushell
 
     # Setup shell integrations
-    setup_direnv_hooks
+    if [ "$CI_MODE" = true ]; then
+        log_info "CI mode: skipping shell rc modifications"
+    else
+        setup_direnv_hooks
+    fi
 
     # Verify environment
     verify_environment

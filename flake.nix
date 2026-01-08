@@ -27,33 +27,30 @@
     flake-parts.lib.mkFlake { inherit inputs; } {
       systems = import systems;
 
-      imports = [
-        devshell.flakeModule
-      ];
-
       # Flake-level outputs (not per-system)
       flake = {
         # Export library functions
-        lib = import ./lib { inherit (nixpkgs) lib; inherit inputs; };
+        lib = (import ./lib { inherit (nixpkgs) lib; inherit inputs; }) // {
+          # Home-manager modules are not a standard flake output; expose them under lib
+          # to avoid warnings like: "unknown flake output 'homeManagerModules'".
+          homeManagerModules = {
+            common = ./modules/common;
+            linux = ./modules/linux;
+            macos = ./modules/macos;
 
-        # Export modules for use in other flakes
-        homeManagerModules = {
-          common = ./modules/common;
-          linux = ./modules/linux;
-          macos = ./modules/macos;
-
-          # Combined module that auto-selects based on platform
-          default =
-            { config, lib, pkgs, ... }:
-            {
-              imports = [
-                ./modules/common
-              ] ++ lib.optionals pkgs.stdenv.isLinux [
-                ./modules/linux
-              ] ++ lib.optionals pkgs.stdenv.isDarwin [
-                ./modules/macos
-              ];
-            };
+            # Combined module that auto-selects based on platform
+            default =
+              { config, lib, pkgs, ... }:
+              {
+                imports = [
+                  ./modules/common
+                ] ++ lib.optionals pkgs.stdenv.isLinux [
+                  ./modules/linux
+                ] ++ lib.optionals pkgs.stdenv.isDarwin [
+                  ./modules/macos
+                ];
+              };
+          };
         };
 
         # Export NixOS/Darwin modules (for system-level configuration)
@@ -139,116 +136,63 @@
         in
         {
           # Development shell (main entry point)
-          devshells.default = {
-            env = [
-              {
-                name = "COLCON_DEFAULTS_FILE";
-                value = toString colconDefaults;
-              }
-              {
-                name = "EDITOR";
-                value = "hx";
-              }
-              {
-                name = "VISUAL";
-                value = "hx";
-              }
-            ];
+          # Use standard `devShells` (and avoid the devshell flake module) so `nix flake check`
+          # stays warning-free on newer Nix.
+          devShells.default = pkgs.mkShell {
+            packages = commonPackages ++ linuxPackages ++ darwinPackages;
+            COLCON_DEFAULTS_FILE = toString colconDefaults;
+            EDITOR = "hx";
+            VISUAL = "hx";
 
-            devshell = {
-              packages = commonPackages ++ linuxPackages ++ darwinPackages;
+            shellHook = ''
+              # Initialize pixi environment
+              if [ -f pixi.toml ]; then
+                ${optionalString isDarwin ''
+                  export DYLD_FALLBACK_LIBRARY_PATH="$PWD/.pixi/envs/default/lib:$DYLD_FALLBACK_LIBRARY_PATH"
+                ''}
+                eval "$(pixi shell-hook)"
+              fi
 
-              startup.activate.text = ''
-                # Initialize pixi environment
-                if [ -f pixi.toml ]; then
-                  ${optionalString isDarwin ''
-                    export DYLD_FALLBACK_LIBRARY_PATH="$PWD/.pixi/envs/default/lib:$DYLD_FALLBACK_LIBRARY_PATH"
-                  ''}
-                  eval "$(pixi shell-hook)"
-                fi
+              # Initialize direnv
+              eval "$(direnv hook bash)"
 
-                # Initialize direnv
-                eval "$(direnv hook bash)"
+              # Initialize zoxide
+              eval "$(zoxide init bash)"
 
-                # Initialize zoxide
-                eval "$(zoxide init bash)"
+              # Initialize starship prompt
+              eval "$(starship init bash)"
 
-                # Initialize starship prompt
-                eval "$(starship init bash)"
-
-                # ROS2 environment info
-                echo ""
-                echo "🤖 ROS2 Humble Development Environment"
-                echo "======================================"
-                echo "  Platform: ${if isDarwin then "macOS" else "Linux"} (${system})"
-                echo "  Shell: bash (use 'zsh' or 'nu' for other shells)"
-                echo ""
-                echo "Quick commands:"
-                echo "  cb     - colcon build --symlink-install"
-                echo "  ct     - colcon test"
-                echo "  pixi   - package manager"
-                echo ""
-              '';
-
-              motd = "";
-            };
-
-            # Command aliases
-            commands = [
-              {
-                name = "cb";
-                help = "colcon build --symlink-install";
-                command = "colcon build --symlink-install $@";
-              }
-              {
-                name = "ct";
-                help = "colcon test";
-                command = "colcon test $@";
-              }
-              {
-                name = "ctr";
-                help = "colcon test-result --verbose";
-                command = "colcon test-result --verbose";
-              }
-              {
-                name = "ros2-env";
-                help = "Show ROS2 environment variables";
-                command = "env | grep -E '^(ROS|RMW|AMENT|COLCON)' | sort";
-              }
-              {
-                name = "update-deps";
-                help = "Update pixi dependencies";
-                command = "pixi update";
-              }
-            ];
+              # ROS2 environment info
+              echo ""
+              echo "🤖 ROS2 Humble Development Environment"
+              echo "======================================"
+              echo "  Platform: ${if isDarwin then "macOS" else "Linux"} (${system})"
+              echo "  Shell: bash (use 'zsh' or 'nu' for other shells)"
+              echo ""
+              echo "Quick commands:"
+              echo "  cb     - colcon build --symlink-install"
+              echo "  ct     - colcon test"
+              echo "  pixi   - package manager"
+              echo ""
+            '';
           };
 
           # Minimal shell for CI
-          devshells.ci = {
-            env = [
-              {
-                name = "COLCON_DEFAULTS_FILE";
-                value = toString colconDefaults;
-              }
+          devShells.ci = pkgs.mkShell {
+            packages = with pkgs; [
+              pixi
+              git
             ];
+            COLCON_DEFAULTS_FILE = toString colconDefaults;
 
-            devshell = {
-              packages = with pkgs; [
-                pixi
-                git
-              ];
-
-              startup.activate.text = ''
-                if [ -f pixi.toml ]; then
-                  ${optionalString isDarwin ''
-                    export DYLD_FALLBACK_LIBRARY_PATH="$PWD/.pixi/envs/default/lib:$DYLD_FALLBACK_LIBRARY_PATH"
-                  ''}
-                  eval "$(pixi shell-hook)"
-                fi
-              '';
-
-              motd = "";
-            };
+            shellHook = ''
+              if [ -f pixi.toml ]; then
+                ${optionalString isDarwin ''
+                  export DYLD_FALLBACK_LIBRARY_PATH="$PWD/.pixi/envs/default/lib:$DYLD_FALLBACK_LIBRARY_PATH"
+                ''}
+                eval "$(pixi shell-hook)"
+              fi
+            '';
           };
 
           # Formatter for nix files

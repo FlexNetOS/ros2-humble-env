@@ -2,7 +2,7 @@ name: Bootstrap End-to-End Test
 
 on:
   push:
-    branches: [main]
+    branches: [main, master]
     paths:
       - 'bootstrap.sh'
       - 'bootstrap.ps1'
@@ -12,7 +12,7 @@ on:
       - 'pixi.lock'
       - '.github/workflows/bootstrap-test.yml'
   pull_request:
-    branches: [main]
+    branches: [main, master]
   workflow_dispatch:
     inputs:
       run_windows_e2e:
@@ -67,7 +67,7 @@ jobs:
 
       - name: Verify flake
         run: |
-          nix flake check --no-build
+          nix flake check --no-build --all-systems
           nix flake show
 
       - name: Build development shell
@@ -122,7 +122,7 @@ jobs:
 
       - name: Verify flake
         run: |
-          nix flake check --no-build
+          nix flake check --no-build --all-systems
           nix flake show
 
       - name: Build development shell

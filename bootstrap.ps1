@@ -248,8 +248,9 @@ function Set-VirtualDiskSize {
         return $false
     }
 
-    # Resize the VHDX to specified size
-    $diskSizeBytes = [int64]$DiskSizeGB * 1024 * 1024 * 1024
+    # NOTE: diskpart's `expand vdisk maximum=` expects the maximum size in **MB**.
+    # We accept DiskSizeGB, so convert to MB.
+    $diskSizeMB = [int64]$DiskSizeGB * 1024
 
     Write-ColorOutput "Resizing virtual disk to ${DiskSizeGB}GB..." "Info"
 
@@ -261,7 +262,7 @@ function Set-VirtualDiskSize {
         # Use diskpart to resize
         $diskpartScript = @"
 select vdisk file="$vhdxPath"
-expand vdisk maximum=$DiskSizeGB
+expand vdisk maximum=$diskSizeMB
 "@
         $diskpartScript | diskpart | Out-Null
 
