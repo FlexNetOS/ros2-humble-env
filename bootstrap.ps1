@@ -1,220 +1,103 @@
-# ROS2 Humble Environment Bootstrap Script for Windows/PowerShell
-# Requires: Nix (with WSL2 or native Windows support)
+# Bootstrap script for Windows/PowerShell
+# Requires: Nix with flakes, Git
 
-# Set strict mode
 $ErrorActionPreference = "Stop"
 
-# Color functions
-function Write-ColorOutput {
-    param(
-        [string]$Message,
-        [string]$Color = "White"
-    )
-    Write-Host $Message -ForegroundColor $Color
+function Print-Error($msg) {
+    Write-Host "ERROR: $msg" -ForegroundColor Red
 }
 
-function Write-Error-Message {
-    param([string]$Message)
-    Write-ColorOutput "ERROR: $Message" "Red"
+function Print-Success($msg) {
+    Write-Host "✓ $msg" -ForegroundColor Green
 }
 
-function Write-Success-Message {
-    param([string]$Message)
-    Write-ColorOutput "SUCCESS: $Message" "Green"
+function Print-Info($msg) {
+    Write-Host "INFO: $msg" -ForegroundColor Yellow
 }
 
-function Write-Info-Message {
-    param([string]$Message)
-    Write-ColorOutput "INFO: $Message" "Yellow"
-}
+Write-Host "=========================================="
+Write-Host "  ROS2 Humble Environment Bootstrap"
+Write-Host "=========================================="
+Write-Host ""
 
-# Check if Nix is installed
-function Test-NixInstalled {
-    try {
-        $nixPath = Get-Command nix -ErrorAction Stop
-        Write-Success-Message "Nix is installed at: $($nixPath.Source)"
-        
-        # Check if flakes are enabled
-        $flakeTest = nix eval --expr "1 + 1" 2>&1
-        if ($LASTEXITCODE -ne 0) {
-            Write-Error-Message "Nix is installed but flakes are not enabled"
-            Write-Host ""
-            Write-Host "To enable flakes, add the following to your Nix configuration:"
-            Write-Host "  experimental-features = nix-command flakes"
-            Write-Host ""
-            Write-Host "On WSL2/Linux: ~/.config/nix/nix.conf or /etc/nix/nix.conf"
-            Write-Host ""
-            return $false
-        }
-        
-        return $true
-    }
-    catch {
-        Write-Error-Message "Nix is not installed or not in PATH"
-        Write-Host ""
-        Write-Host "To use this environment on Windows, you need either:"
-        Write-Host ""
-        Write-Host "1. WSL2 with Nix installed (recommended):"
-        Write-Host "   - Install WSL2: wsl --install"
-        Write-Host "   - Install Nix in WSL2: sh <(curl -L https://nixos.org/nix/install) --daemon"
-        Write-Host ""
-        Write-Host "2. Use bootstrap.sh from within WSL2"
-        Write-Host ""
-        Write-Host "Note: Native Windows Nix support is experimental."
-        Write-Host ""
-        return $false
-    }
-}
-
-# Check if we're in WSL2
-function Test-IsWSL {
-    if ($env:WSL_DISTRO_NAME) {
-        return $true
-    }
-    return $false
-}
-
-# Check and recommend direnv
-function Test-Direnv {
-    try {
-        $direnvPath = Get-Command direnv -ErrorAction Stop
-        Write-Success-Message "direnv is installed at: $($direnvPath.Source)"
-        return $true
-    }
-    catch {
-        Write-Info-Message "direnv is not installed (recommended for automatic environment activation)"
-        Write-Host ""
-        Write-Host "To install direnv:"
-        Write-Host "  - On WSL2/Linux: sudo apt install direnv (Ubuntu/Debian)"
-        Write-Host "  - On macOS: brew install direnv"
-        Write-Host ""
-        Write-Host "After installation, add to your shell config:"
-        Write-Host "  - bash: echo 'eval `"`$(direnv hook bash)`"' >> ~/.bashrc"
-        Write-Host "  - zsh: echo 'eval `"`$(direnv hook zsh)`"' >> ~/.zshrc"
-        Write-Host ""
-        return $false
-    }
-}
-
-# Main bootstrap process
-function Start-Bootstrap {
-    Write-Host "=========================================="
-    Write-Host "  ROS2 Humble Environment Bootstrap"
-    Write-Host "=========================================="
+# Check Nix
+if (!(Get-Command nix -ErrorAction SilentlyContinue)) {
+    Print-Error "Nix is not installed"
     Write-Host ""
-    
-    # Check if we're in WSL2
-    if (Test-IsWSL) {
-        Write-Info-Message "Running in WSL2 environment"
-        Write-Host ""
-    }
-    
-    # Check prerequisites
-    if (-not (Test-NixInstalled)) {
-        exit 1
-    }
-    
-    Write-Info-Message "Pixi will be provided by the Nix dev shell"
+    Write-Host "Install Nix with flakes enabled:"
+    Write-Host "  Visit: https://nixos.org/download.html"
     Write-Host ""
-    
-    # Check for direnv (recommended)
-    $direnvAvailable = Test-Direnv
-    Write-Host ""
-    
-    Write-Info-Message "Entering Nix dev shell and running pixi install..."
-    Write-Host ""
-    
-    # Enter the dev shell and run pixi install
-    $nixCommand = @"
-set -euo pipefail
-
-# Verify pixi is available
-if ! command -v pixi &> /dev/null; then
-    echo 'ERROR: pixi is not available in the dev shell' >&2
     exit 1
-fi
-
-echo 'Pixi version: \$(pixi --version)'
-echo ''
-echo 'Running pixi install...'
-pixi install
-
-echo ''
-echo 'Verifying installation...'
-
-# Verify ROS2 is available
-if command -v ros2 &> /dev/null; then
-    echo '✓ ROS2 command available'
-    ros2 --version
-else
-    echo 'WARNING: ros2 command not found in PATH' >&2
-fi
-
-# Verify Python is available
-if command -v python &> /dev/null; then
-    echo '✓ Python available: \$(python --version)'
-else
-    echo 'WARNING: python command not found' >&2
-fi
-
-# Verify NuShell for automation
-if command -v nu &> /dev/null; then
-    echo '✓ NuShell available: \$(nu --version)'
-else
-    echo 'WARNING: nushell not found' >&2
-fi
-
-echo ''
-echo 'Bootstrap completed successfully!'
-echo ''
-echo '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
-echo '  Next Steps'
-echo '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
-echo ''
-"@
-    
-    try {
-        nix develop --command bash -c $nixCommand
-        
-        if ($LASTEXITCODE -eq 0) {
-            Write-Host ""
-            
-            # Provide next steps based on whether direnv is available
-            if ($direnvAvailable) {
-                Write-Host "RECOMMENDED: Use direnv for automatic environment activation" -ForegroundColor Green
-                Write-Host ""
-                Write-Host "  1. Allow direnv for this directory:"
-                Write-Host "     direnv allow"
-                Write-Host ""
-                Write-Host "  2. The environment will activate automatically when you cd into this directory"
-                Write-Host ""
-                Write-Host "Or manually enter the environment:"
-                Write-Host "  nix develop"
-            }
-            else {
-                Write-Host "To enter the development environment:" -ForegroundColor Yellow
-                Write-Host ""
-                Write-Host "  nix develop"
-                Write-Host ""
-                Write-Host "RECOMMENDED: Install direnv for automatic environment activation"
-                Write-Host "  (see installation instructions above)"
-            }
-            
-            Write-Host ""
-            Write-Success-Message "Setup complete!"
-        }
-        else {
-            Write-Host ""
-            Write-Error-Message "Bootstrap failed with exit code $LASTEXITCODE"
-            exit $LASTEXITCODE
-        }
-    }
-    catch {
-        Write-Host ""
-        Write-Error-Message "Bootstrap failed: $_"
-        exit 1
-    }
 }
 
-# Run main function
-Start-Bootstrap
+# Test flakes
+try {
+    $null = nix eval --expr "1 + 1" 2>&1
+} catch {
+    Print-Error "Nix flakes are not enabled"
+    Write-Host "Enable in nix.conf:"
+    Write-Host "  experimental-features = nix-command flakes"
+    exit 1
+}
+
+Print-Success "Nix with flakes is installed"
+
+# Check Git
+if (!(Get-Command git -ErrorAction SilentlyContinue)) {
+    Print-Error "Git is not installed"
+    Write-Host ""
+    Write-Host "Install Git from: https://git-scm.com/download/win"
+    Write-Host ""
+    exit 1
+}
+
+Print-Success "Git is installed"
+
+# Check direnv
+if (Get-Command direnv -ErrorAction SilentlyContinue) {
+    Print-Success "direnv is installed"
+    Print-Info "After bootstrap, run: direnv allow"
+} else {
+    Print-Info "direnv not found - you'll need to use 'nom develop' manually"
+}
+
+Write-Host ""
+Print-Info "Entering dev shell and running pixi install..."
+Write-Host ""
+
+# Use nom develop if available
+$developCmd = if (Get-Command nom -ErrorAction SilentlyContinue) { "nom" } else { "nix" }
+
+& $developCmd develop --command pwsh -Command {
+    $ErrorActionPreference = "Stop"
+    
+    if (!(Get-Command pixi -ErrorAction SilentlyContinue)) {
+        Write-Host "ERROR: pixi not available in dev shell" -ForegroundColor Red
+        exit 1
+    }
+    
+    Write-Host "Running pixi install..."
+    pixi install
+    
+    Write-Host ""
+    Write-Host "✓ Bootstrap complete!" -ForegroundColor Green
+}
+
+if ($LASTEXITCODE -eq 0) {
+    Write-Host ""
+    Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    Write-Host "  Next Steps"
+    Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    Write-Host ""
+    if (Get-Command direnv -ErrorAction SilentlyContinue) {
+        Write-Host "1. Run: direnv allow"
+        Write-Host "2. Environment will activate automatically"
+    } else {
+        Write-Host "1. Run: nom develop (or nix develop)"
+    }
+    Write-Host ""
+    Print-Success "Setup complete!"
+} else {
+    Print-Error "Bootstrap failed"
+    exit 1
+}

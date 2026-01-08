@@ -1,193 +1,109 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-# Function to print colored messages
-print_error() {
-    echo -e "${RED}ERROR: $1${NC}" >&2
-}
+print_error() { echo -e "${RED}ERROR: $1${NC}" >&2; }
+print_success() { echo -e "${GREEN}✓ $1${NC}"; }
+print_info() { echo -e "${YELLOW}INFO: $1${NC}"; }
 
-print_success() {
-    echo -e "${GREEN}SUCCESS: $1${NC}"
-}
+echo "=========================================="
+echo "  ROS2 Humble Environment Bootstrap"
+echo "=========================================="
+echo ""
 
-print_info() {
-    echo -e "${YELLOW}INFO: $1${NC}"
-}
+# Check Nix
+if ! command -v nix &> /dev/null; then
+    print_error "Nix is not installed"
+    echo ""
+    echo "Install Nix with flakes enabled:"
+    echo "  curl --proto '=https' --tlsv1.2 -sSf -L https://artifacts.nixos.org/experimental-installer | sh -s -- install"
+    echo ""
+    exit 1
+fi
 
-# Check if Nix is installed
-check_nix() {
-    if ! command -v nix &> /dev/null; then
-        print_error "Nix is not installed or not in PATH"
-        echo ""
-        echo "To install Nix, run one of the following:"
-        echo ""
-        echo "1. Experimental installer (recommended):"
-        echo "   curl --proto '=https' --tlsv1.2 -sSf -L https://artifacts.nixos.org/experimental-installer | sh -s -- install"
-        echo ""
-        echo "2. Official installer:"
-        echo "   sh <(curl -L https://nixos.org/nix/install) --daemon"
-        echo ""
-        return 1
-    fi
-    
-    # Check if flakes are enabled
-    if ! nix eval --expr '1 + 1' &> /dev/null; then
-        print_error "Nix is installed but flakes are not enabled"
-        echo ""
-        echo "To enable flakes, add the following to your Nix configuration:"
-        echo "  experimental-features = nix-command flakes"
-        echo ""
-        echo "Location depends on your system:"
-        echo "  - NixOS: /etc/nixos/configuration.nix"
-        echo "  - macOS/Linux: ~/.config/nix/nix.conf or /etc/nix/nix.conf"
-        echo ""
-        return 1
-    fi
-    
-    print_success "Nix is installed and flakes are enabled"
-    return 0
-}
+if ! nix eval --expr '1 + 1' &> /dev/null; then
+    print_error "Nix flakes are not enabled"
+    echo "Add to ~/.config/nix/nix.conf or /etc/nix/nix.conf:"
+    echo "  experimental-features = nix-command flakes"
+    exit 1
+fi
 
-# Check if Pixi will be available in the dev shell
-check_pixi_in_shell() {
-    print_info "Pixi will be provided by the Nix dev shell"
-    return 0
-}
+print_success "Nix with flakes is installed"
 
-# Check and recommend direnv
-check_direnv() {
+# Check git
+if ! command -v git &> /dev/null; then
+    print_error "Git is not installed"
+    echo ""
+    echo "Install git:"
+    echo "  - macOS: brew install git"
+    echo "  - Ubuntu/Debian: sudo apt install git"
+    echo "  - Fedora: sudo dnf install git"
+    echo ""
+    exit 1
+fi
+
+print_success "Git is installed"
+
+# Check direnv (included in this repo via .envrc)
+if command -v direnv &> /dev/null; then
+    print_success "direnv is installed"
+    print_info "After bootstrap, run: direnv allow"
+else
+    print_info "direnv not found - you'll need to use 'nom develop' manually"
+    echo "Install direnv:"
+    echo "  - macOS: brew install direnv"
+    echo "  - Ubuntu/Debian: sudo apt install direnv"
+    echo "Then add to your shell:"
+    echo "  - bash: eval \"\$(direnv hook bash)\""
+    echo "  - zsh: eval \"\$(direnv hook zsh)\""
+fi
+
+echo ""
+print_info "Entering dev shell and running pixi install..."
+echo ""
+
+# Use nom develop for better output, fall back to nix develop
+if command -v nom &> /dev/null; then
+    DEVELOP_CMD="nom develop"
+else
+    DEVELOP_CMD="nix develop"
+fi
+
+$DEVELOP_CMD --command bash <<'EOF'
+set -euo pipefail
+
+if ! command -v pixi &> /dev/null; then
+    echo "ERROR: pixi not available in dev shell" >&2
+    exit 1
+fi
+
+echo "Running pixi install..."
+pixi install
+
+echo ""
+echo "✓ Bootstrap complete!"
+EOF
+
+if [ $? -eq 0 ]; then
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  Next Steps"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
     if command -v direnv &> /dev/null; then
-        print_success "direnv is installed"
-        return 0
+        echo "1. Run: direnv allow"
+        echo "2. Environment will activate automatically"
     else
-        print_info "direnv is not installed (recommended for automatic environment activation)"
-        echo ""
-        echo "To install direnv:"
-        echo "  - macOS: brew install direnv"
-        echo "  - Ubuntu/Debian: sudo apt install direnv"
-        echo "  - Fedora: sudo dnf install direnv"
-        echo "  - Arch: sudo pacman -S direnv"
-        echo ""
-        echo "After installation, add to your shell config:"
-        echo "  - bash: echo 'eval \"\$(direnv hook bash)\"' >> ~/.bashrc"
-        echo "  - zsh: echo 'eval \"\$(direnv hook zsh)\"' >> ~/.zshrc"
-        echo ""
-        return 1
+        echo "1. Run: nom develop (or nix develop)"
+        echo "2. Or install direnv for auto-activation"
     fi
-}
-
-# Main bootstrap process
-main() {
-    echo "=========================================="
-    echo "  ROS2 Humble Environment Bootstrap"
-    echo "=========================================="
     echo ""
-    
-    # Check prerequisites
-    if ! check_nix; then
-        exit 1
-    fi
-    
-    check_pixi_in_shell
-    
-    echo ""
-    
-    # Check for direnv (recommended)
-    DIRENV_AVAILABLE=0
-    if check_direnv; then
-        DIRENV_AVAILABLE=1
-    fi
-    
-    echo ""
-    print_info "Entering Nix dev shell and running pixi install..."
-    echo ""
-    
-    # Enter the dev shell and run pixi install
-    # Using a here-doc for better readability
-    nix develop --command bash <<'DEVSHELL_SCRIPT'
-        set -euo pipefail
-        
-        # Verify pixi is available
-        if ! command -v pixi &> /dev/null; then
-            echo "ERROR: pixi is not available in the dev shell" >&2
-            exit 1
-        fi
-        
-        echo "Pixi version: $(pixi --version)"
-        echo ""
-        echo "Running pixi install..."
-        pixi install
-        
-        echo ""
-        echo "Verifying installation..."
-        
-        # Verify ROS2 is available
-        if command -v ros2 &> /dev/null; then
-            echo "✓ ROS2 command available"
-            ros2 --version
-        else
-            echo "WARNING: ros2 command not found in PATH" >&2
-        fi
-        
-        # Verify Python is available
-        if command -v python &> /dev/null; then
-            echo "✓ Python available: $(python --version)"
-        else
-            echo "WARNING: python command not found" >&2
-        fi
-        
-        # Verify NuShell for automation
-        if command -v nu &> /dev/null; then
-            echo "✓ NuShell available: $(nu --version)"
-        else
-            echo "WARNING: nushell not found" >&2
-        fi
-        
-        echo ""
-        echo "Bootstrap completed successfully!"
-        echo ""
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "  Next Steps"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo ""
-DEVSHELL_SCRIPT
-    
-    exit_code=$?
-    
-    if [ $exit_code -eq 0 ]; then
-        # Provide next steps based on whether direnv is available
-        if [ $DIRENV_AVAILABLE -eq 1 ]; then
-            echo "RECOMMENDED: Use direnv for automatic environment activation"
-            echo ""
-            echo "  1. Allow direnv for this directory:"
-            echo "     direnv allow"
-            echo ""
-            echo "  2. The environment will activate automatically when you cd into this directory"
-            echo ""
-            echo "Or manually enter the environment:"
-            echo "  nix develop"
-        else
-            echo "To enter the development environment:"
-            echo ""
-            echo "  nix develop"
-            echo ""
-            echo "RECOMMENDED: Install direnv for automatic environment activation"
-            echo "  (see installation instructions above)"
-        fi
-        echo ""
-        print_success "Setup complete!"
-    else
-        echo ""
-        print_error "Bootstrap failed with exit code $exit_code"
-        exit $exit_code
-    fi
-}
-
-# Run main function
-main "$@"
+    print_success "Setup complete!"
+else
+    print_error "Bootstrap failed"
+    exit 1
+fi

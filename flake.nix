@@ -41,22 +41,16 @@
           lazyvimSetup = pkgs.writeShellScript "setup-lazyvim.sh" ''
             NVIM_CONFIG="$HOME/.config/nvim"
             
-            # Validate the config path before proceeding
             if [ -z "$NVIM_CONFIG" ] || [ -z "$HOME" ]; then
               echo "ERROR: Invalid configuration path" >&2
               exit 1
             fi
             
-            # Create parent directory if it doesn't exist for realpath to work
             mkdir -p "$(dirname "$NVIM_CONFIG")"
             
-            # Canonicalize paths to prevent traversal attacks
-            CANONICAL_CONFIG=$(realpath -m "$NVIM_CONFIG")
-            CANONICAL_HOME=$(realpath "$HOME")
-            
             # Ensure the path is within the user's home directory
-            case "$CANONICAL_CONFIG" in
-              "$CANONICAL_HOME"/*)
+            case "$NVIM_CONFIG" in
+              "$HOME"/*)
                 # Path is within home directory, safe to proceed
                 ;;
               *)
@@ -68,10 +62,7 @@
             if [ ! -d "$NVIM_CONFIG" ]; then
               echo "Setting up LazyVim..."
               git clone https://github.com/LazyVim/starter "$NVIM_CONFIG"
-              # Remove .git directory from the cloned starter (safe since we just created it)
-              if [ -d "$NVIM_CONFIG/.git" ]; then
-                rm -rf "$NVIM_CONFIG/.git"
-              fi
+              rm -rf "$NVIM_CONFIG/.git"
               echo "LazyVim starter cloned to $NVIM_CONFIG"
               echo "Run 'nvim' to complete the setup."
             else
@@ -89,11 +80,10 @@
             ];
             packages = with pkgs; [
               pixi
+              nix-output-monitor # nom for better build output
               neovim
               git
               gcc
-              gnumake
-              coreutils
               ripgrep
               fd
               nodejs

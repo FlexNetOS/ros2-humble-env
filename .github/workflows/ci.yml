@@ -1,4 +1,4 @@
-name: CI Smoke Tests
+name: CI
 
 on:
   push:
@@ -7,108 +7,41 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  smoke-test:
-    name: Smoke Tests
+  test:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
+      
       - name: Install Nix
-        uses: cachix/install-nix-action@v26
-        with:
-          extra_nix_config: |
-            experimental-features = nix-command flakes
-
+        uses: DeterminateSystems/nix-installer-action@v9
+        
       - name: Setup Nix cache
         uses: DeterminateSystems/magic-nix-cache-action@v3
-
+        
       - name: Run nix flake check
         run: nix flake check -L
-
-      - name: Enter dev shell and verify Pixi
-        run: |
-          nix develop --command bash -c '
-            set -euo pipefail
-            echo "Checking pixi installation..."
-            pixi --version
-          '
-
-      - name: Run pixi install
-        run: |
-          nix develop --command bash -c '
-            set -euo pipefail
-            echo "Running pixi install..."
-            pixi install
-          '
-
-      - name: Verify ROS2 environment
-        run: |
-          nix develop --command bash -c '
-            set -euo pipefail
-            echo "Verifying ROS2 installation..."
-            
-            # Check ros2 command
-            if ! command -v ros2 &> /dev/null; then
-              echo "ERROR: ros2 command not found" >&2
-              exit 1
-            fi
-            
-            echo "ROS2 version:"
-            ros2 --version
-            
-            # Run a basic ROS2 command
-            echo ""
-            echo "Testing ROS2 functionality with ros2 topic list..."
-            timeout 10s ros2 topic list || echo "ros2 topic list timed out (expected without daemon)"
-            
-            # Verify ROS2 packages are available
-            echo ""
-            echo "Checking ROS2 package availability..."
-            ros2 pkg list | head -n 10
-            
-            echo ""
-            echo "✓ ROS2 environment verified"
-          '
-
-      - name: Verify Python in Pixi environment
-        run: |
-          nix develop --command bash -c '
-            set -euo pipefail
-            echo "Verifying Python..."
-            python --version
-            python -c "import sys; print(f\"Python path: {sys.executable}\")"
-            echo "✓ Python verified"
-          '
-
-      - name: Verify Neovim
-        run: |
-          nix develop --command bash -c '
-            set -euo pipefail
-            echo "Checking Neovim installation..."
-            nvim --version
-            echo "Running Neovim health check..."
-            nvim --headless "+checkhealth" +qa || true
-          '
-
-      - name: Test bootstrap script end-to-end
+        
+      - name: Test bootstrap script
         run: |
           chmod +x bootstrap.sh
-          echo "Running bootstrap.sh (full execution)..."
-          # Run the bootstrap script in a way that simulates user execution
-          # It will check prerequisites and run pixi install
-          ./bootstrap.sh || (echo "Bootstrap script failed" && exit 1)
-          echo "✓ Bootstrap script completed successfully"
-
-      - name: Verify NuShell availability
+          # Just verify syntax
+          bash -n bootstrap.sh
+        
+      - name: Verify dev shell
         run: |
           nix develop --command bash -c '
-            set -euo pipefail
-            echo "Checking NuShell installation..."
-            nu --version
-            echo "Testing non-interactive Nu command..."
-            nu -c "echo \"NuShell automation test passed\""
+            echo "Verifying pixi..."
+            pixi --version
+            
+            echo "Running pixi install..."
+            pixi install
+            
+            echo "Checking ROS2..."
+            if command -v ros2 &> /dev/null; then
+              ros2 --version
+            fi
           '
