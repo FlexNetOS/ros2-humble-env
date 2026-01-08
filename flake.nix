@@ -144,7 +144,7 @@
             tree-sitter
 
             # Node.js ecosystem (for LazyVim plugins)
-            nodejs_20
+            nodejs_22           # LTS "Jod" - active until Apr 2027
             nodePackages.pnpm
 
             # Git tools

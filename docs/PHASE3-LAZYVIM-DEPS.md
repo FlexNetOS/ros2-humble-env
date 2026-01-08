@@ -161,7 +161,7 @@ git clone https://github.com/LazyVim/starter ~/.config/nvim
 | curl | ✅ | ✅ (pixi + nix) | ✅ Added |
 | LuaJIT | ✅ | ✅ (in neovim) | None needed |
 | Nerd Fonts | ✅ | ❌ | Add optional package |
-| Node.js | ✅ | ✅ (pixi + nix) | ✅ Added nodejs_20 |
+| Node.js | ✅ | ✅ (pixi + nix) | ✅ Added nodejs_22 (LTS) |
 | pnpm | ✅ | ✅ (pixi + nix) | ✅ Added |
 | ripgrep | ✅ | ✅ | None needed |
 | fd | ✅ | ✅ | None needed |
@@ -194,7 +194,7 @@ commonPackages = with pkgs; [
   tree-sitter
 
   # Node.js ecosystem (for LazyVim plugins)
-  nodejs_20
+  nodejs_22           # LTS "Jod" - active until Apr 2027
   nodePackages.pnpm
 ];
 ```
@@ -205,7 +205,7 @@ ccache = ">=4.10,<5"
 sccache = ">=0.8,<1"
 tar = ">=1.34"
 curl = ">=8.0"
-nodejs = ">=20.0,<21"
+nodejs = ">=22.0,<23"    # LTS "Jod" - active until Apr 2027
 pnpm = ">=9.0"
 ```
 
