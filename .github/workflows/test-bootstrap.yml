@@ -141,11 +141,24 @@ jobs:
         shell: pwsh
         run: |
           $winPath = Join-Path $env:GITHUB_WORKSPACE 'bootstrap.sh'
-          $wslPath = (wsl -- wslpath -a "$winPath").Trim()
+          if (-not (Test-Path $winPath)) {
+            Write-Error "Expected file not found: $winPath"
+          }
+
+          # Convert e.g. D:\a\repo\repo\bootstrap.sh -> /mnt/d/a/repo/repo/bootstrap.sh
+          $drive = $winPath.Substring(0,1).ToLower()
+          $rest = $winPath.Substring(2) -replace '\\','/'
+          $wslPath = "/mnt/$drive$rest"
 
           Write-Host "Validating bootstrap.sh syntax in WSL:" -ForegroundColor Cyan
           Write-Host "  Windows: $winPath"
           Write-Host "  WSL:     $wslPath"
+
+          # Ensure WSL can see the file
+          wsl -- test -f "$wslPath"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "WSL cannot access expected path: $wslPath"
+          }
 
           wsl -- bash -n "$wslPath"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
