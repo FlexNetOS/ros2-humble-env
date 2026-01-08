@@ -4,31 +4,41 @@ This document tracks compatibility issues, version constraints, and recommended 
 
 ## Python Version Compatibility
 
-### Current Constraint: Python 3.11.x
+### Official ROS2 Support: Python 3.12.3
+
+Per [ros2/ros2#1684](https://github.com/ros2/ros2/issues/1684) (May 6, 2025), ROS2 maintainer Michael Carroll confirmed:
+
+> "The binaries for Debian/Ubuntu and RHEL are built against the Python version that is found in the underlying distribution (in this case 3.12.3 for Ubuntu Noble)"
 
 | Component | Python Version | Reason |
 |-----------|---------------|--------|
-| ROS2 Humble (robostack) | 3.11.x | ABI-locked via rclpy C extensions |
+| ROS2 Official (Ubuntu Noble) | 3.12.3 | Official binary builds |
+| ROS2 (build from source) | 3.12+ | Supported, file issues for incompatibilities |
+| RoboStack Humble | 3.11.x | Conda-forge constraint |
 | PyTorch 2.5+ | 3.9-3.12 | Official wheel support |
-| conda-forge | 3.11.x | Best tested with RoboStack |
 
-### Python 3.14.2 Analysis (NOT RECOMMENDED)
+### Current Constraint: Python 3.11.x (RoboStack)
 
-**Status**: Not compatible with ROS2 Humble
+We use Python 3.11.x because RoboStack conda packages are built against 3.11. To use Python 3.12+:
+1. Build ROS2 from source, OR
+2. Wait for RoboStack to update their builds
+
+### Python 3.14 Analysis (NOT YET READY)
+
+**Status**: Not compatible with current ROS2 ecosystem
 
 **Key Issues**:
-1. **ABI Incompatibility**: ROS2's `rclpy` is a C extension compiled against Python 3.10/3.11 ABI. Python 3.14 introduces ABI changes that break binary compatibility.
+1. **No RoboStack Packages**: The robostack-humble channel has no Python 3.14 builds
+2. **PyTorch Incompatibility**: No official Python 3.14 wheels yet
+3. **Build from source option**: Per ROS2 maintainers, building from source *should* work
 
-2. **No RoboStack Packages**: The robostack-humble channel has no Python 3.14 builds. Building from source would require:
-   - Rebuilding all 200+ ROS2 packages
-   - Potential API changes in Python 3.14 affecting C bindings
-   - 6-12 month timeline before community support
+**From ROS2 maintainers** ([ros2/ros2#1684](https://github.com/ros2/ros2/issues/1684)):
+> "Building from source should allow for using newer versions of Python. If there are incompatibilities, please open issues/PRs in the corresponding repo."
 
-3. **PyTorch Incompatibility**: As of January 2025, PyTorch has no official Python 3.14 wheels. Building from source adds 4-8 hours to environment setup.
-
-4. **Performance Claims**: While Python 3.14 includes JIT compilation improvements, the performance gains (10-30% for pure Python) don't apply to ROS2's C++ core or PyTorch's CUDA kernels.
-
-**Recommendation**: Stay on Python 3.11 for ROS2 Humble. Consider ROS2 Jazzy (Python 3.12) for newer Python features.
+**Recommendation**:
+- **Current**: Stay on Python 3.11 for RoboStack compatibility
+- **Upgrade path**: Consider building ROS2 from source with Python 3.12 for performance gains
+- **Future**: Python 3.14 support expected with Ubuntu 26.04 LTS
 
 ## PyTorch Integration
 
@@ -66,12 +76,15 @@ nix develop .#cuda
 
 ## CUDA Toolkit
 
-### Current Status: CUDA 12.x (Not 13.1)
+### Current Status: CUDA 12.x Default, 13.x Available
 
-**CUDA 13.1 Availability**:
-- Not yet in nixpkgs (as of January 2025)
-- Expected in nixpkgs-unstable Q2 2025
-- conda-forge has CUDA 12.4 as latest stable
+**CUDA Version Selection in nixpkgs**:
+- `cudaPackages` defaults to CUDA 12.x (PyTorch/TorchVision compatibility)
+- `cudaPackages_13_1` available when core ML libraries support it
+- Use CUDA redistributables (`cudaPackages.*`) instead of legacy `cudatoolkit`
+
+Per [nixpkgs CUDA docs](https://github.com/NixOS/nixpkgs/blob/master/doc/languages-frameworks/cuda.section.md):
+> "If `cudaPackages_13_1` is the latest release, but core libraries like PyTorch or TorchVision fail to build with it, `cudaPackages` may alias `cudaPackages_12` instead."
 
 ### Multi-Shell Approach (Implemented)
 
@@ -84,21 +97,37 @@ nix develop .#cuda
 ### CUDA Shell Components
 
 ```nix
-# Included in .#cuda devshell:
+# Included in .#cuda devshell (using CUDA redistributables):
 cudaPackages.cudatoolkit  # CUDA compiler, libraries
 cudaPackages.cudnn        # Deep learning primitives
 cudaPackages.cutensor     # Tensor operations
 cudaPackages.nccl         # Multi-GPU communication
 nvtopPackages.full        # GPU monitoring
+
+# For CUDA 13.x specifically (when PyTorch supports it):
+# cudaPackages_13_1.cudatoolkit
 ```
 
-### Binary Cache
+### Binary Cache (IMPORTANT)
 
-Add to `/etc/nix/nix.conf` for faster CUDA builds:
+The CUDA binary cache moved in November 2025. Add to `/etc/nix/nix.conf`:
+```
+extra-substituters = https://cache.nixos-cuda.org
+extra-trusted-public-keys = cache.nixos-cuda.org-1:AdXGc/SyVzNB8Wf+DrK0EtTbQOKoKkXH1sMgqFpH8ig=
+```
+
+**Alternative (legacy, still works)**:
 ```
 extra-substituters = https://cuda-maintainers.cachix.org
 extra-trusted-public-keys = cuda-maintainers.cachix.org-1:0dq3bujKpuEPMCX6U4WylrUDZ9JyUG0VpVZa7CNfq5E=
 ```
+
+### Flox + NVIDIA Partnership (Sept 2025)
+
+Per [Skywork AI](https://skywork.ai/blog/flox-and-cuda-on-nix-a-comprehensive-guide/):
+> "NVIDIA is now officially enabling Flox to redistribute pre-compiled CUDA packages. This transforms a process that took hours of compilation into a matter of seconds."
+
+Consider Flox as an alternative for faster CUDA package installation.
 
 ### GPU Auto-Detection
 
@@ -144,19 +173,32 @@ nix develop           # For CPU-only
 
 | Component | Version | Notes |
 |-----------|---------|-------|
-| Python | 3.11.x | Required by RoboStack |
+| Python | 3.11.x | RoboStack constraint (ROS2 supports 3.12.3) |
 | PyTorch | 2.5.x | CPU default, CUDA optional |
-| CUDA Toolkit | 12.4 | Via Pixi or Nix |
+| CUDA Toolkit | 12.x | Via Pixi or Nix (13.x available) |
 | cuDNN | 8.9.x | Matched to CUDA 12.x |
 | ROS2 | Humble | robostack-humble channel |
 | Node.js | 22.x LTS | For LazyVim plugins |
 
-### Upgrade Path
+### Upgrade Paths
 
+**Option 1: Stay on RoboStack (current)**
 ```
-Current: ROS2 Humble + Python 3.11 + CUDA 12.4
-    ↓
-Future:  ROS2 Jazzy + Python 3.12 + CUDA 13.x (when available)
+ROS2 Humble + Python 3.11 + CUDA 12.x (RoboStack)
+```
+
+**Option 2: Build ROS2 from source**
+```
+ROS2 Humble + Python 3.12 + CUDA 12.x/13.x
+↳ Better performance, official ROS2 support
+↳ Requires building ROS2 packages locally
+```
+
+**Option 3: Upgrade to ROS2 Jazzy**
+```
+ROS2 Jazzy + Python 3.12 + CUDA 13.x
+↳ Full Python 3.12 support
+↳ Wait for RoboStack Jazzy packages
 ```
 
 ## Troubleshooting
