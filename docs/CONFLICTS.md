@@ -17,11 +17,37 @@ Per [ros2/ros2#1684](https://github.com/ros2/ros2/issues/1684) (May 6, 2025), RO
 | RoboStack Humble | 3.11.x | Conda-forge constraint |
 | PyTorch 2.5+ | 3.9-3.12 | Official wheel support |
 
-### Current Constraint: Python 3.11.x (RoboStack)
+### Dual Python Architecture (Implemented)
 
-We use Python 3.11.x because RoboStack conda packages are built against 3.11. To use Python 3.12+:
+This environment uses **two Python versions** for different purposes:
+
+| Python | Source | Purpose | Access |
+|--------|--------|---------|--------|
+| **3.13.x** | Nix (`python313`) | Scripts, tools, non-ROS apps | `python3.13` |
+| **3.11.x** | Pixi/RoboStack | ROS2, PyTorch, ML stack | `python` (via Pixi) |
+
+**Why two Pythons?**
+- RoboStack conda packages require Python 3.11.x
+- Python 3.13 offers JIT compilation, better performance for scripts
+- Isolation prevents version conflicts between ROS2 and other tools
+
+**Usage:**
+```bash
+# ROS2/PyTorch (via Pixi - default 'python')
+python -c "import rclpy; print('ROS2 ready')"
+python -c "import torch; print(torch.__version__)"
+
+# Nix Python 3.13 (for scripts/tools)
+python3.13 -c "print('Python 3.13 with JIT')"
+python3.13 -m venv my_venv  # Create isolated venv
+```
+
+### RoboStack Constraint: Python 3.11.x
+
+RoboStack conda packages are built against 3.11. To use Python 3.12+ for ROS2:
 1. Build ROS2 from source, OR
 2. Wait for RoboStack to update their builds
+3. (Investigating) Alternative robotics frameworks
 
 ### Python 3.14 Analysis (NOT YET READY)
 
@@ -171,14 +197,16 @@ nix develop           # For CPU-only
 
 ### Tested Compatible Versions
 
-| Component | Version | Notes |
-|-----------|---------|-------|
-| Python | 3.11.x | RoboStack constraint (ROS2 supports 3.12.3) |
-| PyTorch | 2.5.x | CPU default, CUDA optional |
-| CUDA Toolkit | 12.x | Via Pixi or Nix (13.x available) |
-| cuDNN | 8.9.x | Matched to CUDA 12.x |
-| ROS2 | Humble | robostack-humble channel |
-| Node.js | 22.x LTS | For LazyVim plugins |
+| Component | Version | Source | Notes |
+|-----------|---------|--------|-------|
+| Python (scripts) | 3.13.x | Nix | Latest stable, JIT enabled |
+| Python (ROS2) | 3.11.x | Pixi | RoboStack constraint |
+| PyTorch | 2.5.x | Pixi | CPU default, CUDA optional |
+| CUDA Toolkit | 13.x | Nix | Falls back to 12.x if unavailable |
+| cuDNN | 9.x | Nix | Matched to CUDA version |
+| GCC | 13.x | Nix | Pinned for CUDA compatibility |
+| ROS2 | Humble | Pixi | robostack-humble channel |
+| Node.js | 22.x LTS | Nix | For LazyVim plugins |
 
 ### Upgrade Paths
 
