@@ -6,25 +6,84 @@
 |-----------|----------------------|--------|
 | Package Manager | Nix Flakes + Pixi (RoboStack) | ✅ Active |
 | Dev Shell | numtide/devshell via flake-parts | ✅ Active |
+| Home Manager | nix-community/home-manager modules | ✅ Active |
 | Env Activation | direnv (`.envrc` with `use flake`) | ✅ Active |
 | Python | 3.11.14+ via Pixi/conda-forge | ✅ Active |
 | ROS | ros-humble-desktop via RoboStack | ✅ Active |
-| Multi-platform | nix-systems/default (linux-64, osx-64, osx-arm64, linux-aarch64) | ✅ Active |
+| AI Assistants | aichat + aider-chat | ✅ **IMPLEMENTED** |
+| Editor | Helix with ROS2 LSPs | ✅ Active |
+| Shells | bash, zsh, nushell + starship | ✅ Active |
+| Multi-platform | Windows (WSL2), Linux, macOS | ✅ Active |
 
 ### Current Architecture Details
 
 ```
 ros2-humble-env/
-├── .envrc                    # direnv: `use flake`
+├── .envrc                      # direnv: `use flake` + local overrides
 ├── .pixi/
-│   └── config.toml           # Pixi: run-post-link-scripts = "insecure"
-├── flake.nix                 # Nix flake with devshell
-├── flake.lock                # Locked: nixpkgs-unstable, flake-parts, devshell, nix-systems
-├── pixi.toml                 # RoboStack channels + ROS dependencies
-├── pixi.lock                 # Locked conda/RoboStack packages (~1.6MB)
+│   └── config.toml             # Pixi: run-post-link-scripts = "insecure"
+├── .github/
+│   └── workflows/
+│       └── bootstrap-test.yml  # CI workflow
+├── flake.nix                   # Main flake with devshells + home-manager modules
+├── flake.lock                  # Locked: nixpkgs, flake-parts, devshell, home-manager
+├── pixi.toml                   # RoboStack + compilation cache + Node.js
+├── pixi.lock                   # Locked conda/RoboStack packages
+├── bootstrap.sh                # Linux/macOS bootstrap script
+├── bootstrap.ps1               # Windows PowerShell bootstrap (WSL2 + NixOS)
+├── lib/
+│   ├── default.nix             # Library utilities
+│   └── system.nix              # System builder helpers
+├── modules/
+│   ├── common/                 # Cross-platform home-manager modules
+│   │   ├── default.nix         # Module aggregator
+│   │   ├── direnv.nix          # Enhanced direnv config
+│   │   ├── git.nix             # Git configuration
+│   │   ├── packages.nix        # Common packages
+│   │   ├── ai/                 # AI assistants
+│   │   │   ├── aichat.nix      # aichat configuration
+│   │   │   └── aider.nix       # aider configuration
+│   │   ├── nix/                # Nix settings
+│   │   ├── editor/             # Helix editor with ROS2 LSPs
+│   │   └── shell/              # Shell configurations
+│   │       ├── bash.nix
+│   │       ├── zsh.nix
+│   │       ├── nushell.nix
+│   │       ├── zoxide.nix
+│   │       └── starship.nix
+│   ├── linux/                  # Linux-specific configurations
+│   │   ├── default.nix
+│   │   ├── packages.nix
+│   │   ├── docker.nix
+│   │   ├── udev.nix            # Device rules for robotics
+│   │   ├── users.nix
+│   │   └── systemd.nix
+│   └── macos/                  # macOS-specific configurations
+│       ├── default.nix
+│       ├── packages.nix
+│       ├── homebrew.nix
+│       ├── system.nix
+│       └── shell.nix
 └── docs/
-    └── TOOLING-ANALYSIS.md   # This file
+    └── TOOLING-ANALYSIS.md     # This file
 ```
+
+### Implementation Status vs Analysis Recommendations
+
+| Recommendation | Status | Location |
+|---------------|--------|----------|
+| Add aichat to devshell | ✅ **DONE** | `flake.nix:132` |
+| Add aider-chat to devshell | ✅ **DONE** | `flake.nix:133` |
+| Create CI devshell variant | ✅ **DONE** | `flake.nix:269-295` |
+| home-manager integration | ✅ **DONE** | `flake.nix:40-61` |
+| Multiple shell support | ✅ **DONE** | `modules/common/shell/` |
+| Command aliases (cb, ct, ai, pair) | ✅ **DONE** | `flake.nix:230-266` |
+| Compilation cache (ccache, sccache) | ✅ **DONE** | `flake.nix:139-141`, `pixi.toml:18-19` |
+| Node.js for LazyVim plugins | ✅ **DONE** | `flake.nix:147-148`, `pixi.toml:26-27` |
+| Bootstrap scripts | ✅ **DONE** | `bootstrap.sh`, `bootstrap.ps1` |
+| Add xdg-ninja | ⏳ Pending | Not yet added |
+| Add DevPod/devcontainer | ⏳ Pending | `.devcontainer/` not created |
+| Add Zed editor | ⏳ Pending | Not in packages (helix is default) |
 
 ### Key Configuration Details
 
@@ -68,9 +127,27 @@ This enables conda post-link scripts required for ROS package activation.
 |----------|----------|
 | Python | `python >=3.11.14,<3.12` |
 | Build Tools | `compilers`, `cmake >=4.2.0`, `pkg-config`, `make`, `ninja` |
+| Compilation Cache | `ccache >=4.10`, `sccache >=0.8` |
+| Archive/Network | `tar >=1.34`, `curl >=8.0` |
+| Node.js | `nodejs >=22.0` (LTS Jod), `pnpm >=9.0` |
 | ROS Tools | `rosdep`, `colcon-common-extensions`, `catkin_tools` |
 | ROS Core | `ros-humble-desktop >=0.10.0` |
 | Channels | `robostack-humble`, `conda-forge` |
+
+**flake.nix packages (via nixpkgs):**
+| Category | Packages |
+|----------|----------|
+| Core | `pixi`, `git`, `gh` |
+| Nix Tools | `nix-output-monitor`, `nix-tree`, `nixfmt-rfc-style`, `nil` |
+| Shell Utils | `bat`, `eza`, `fd`, `ripgrep`, `fzf`, `jq`, `yq` |
+| Navigation | `zoxide`, `direnv`, `nix-direnv` |
+| Shells | `zsh`, `nushell`, `starship` |
+| Editor | `helix` |
+| AI Assistants | `aichat`, `aider-chat`, `portaudio` (voice) |
+| Build Cache | `ccache`, `sccache`, `mold` (fast linker) |
+| LazyVim Support | `tree-sitter`, `nodejs_22`, `pnpm`, `lazygit` |
+| Linux-only | `inotify-tools`, `strace`, `gdb` |
+| macOS-only | `coreutils`, `gnused`, `gawk` |
 
 **ROS2 Jazzy Upgrade Path (2025+):**
 RoboStack now supports ROS2 Jazzy via `robostack-jazzy` channel. To add Jazzy as a feature:
@@ -480,6 +557,151 @@ The `run-post-link-scripts = "insecure"` setting in `.pixi/config.toml` allows c
 | aichat | API keys stored in `~/.config/aichat/config.yaml` - protect with permissions |
 | Aider | Git commits are automatic - review before pushing |
 | cc-mirror | Isolated instances help contain API key exposure |
+
+---
+
+## Analysis Update Automation Plan
+
+### Overview
+
+This analysis document should be kept in sync with the codebase. The following automation strategies ensure accuracy and reduce manual maintenance.
+
+### Strategy 1: Git Hooks (Local)
+
+**Pre-commit hook** to validate analysis matches implementation:
+
+```bash
+#!/bin/bash
+# .git/hooks/pre-commit
+
+# Check if key files changed
+if git diff --cached --name-only | grep -qE "(flake.nix|pixi.toml|modules/)"; then
+  echo "⚠️  Configuration changed - consider updating docs/TOOLING-ANALYSIS.md"
+fi
+```
+
+### Strategy 2: GitHub Actions (CI)
+
+**Workflow to auto-generate sections:**
+
+```yaml
+# .github/workflows/update-analysis.yml
+name: Update Tooling Analysis
+
+on:
+  push:
+    paths:
+      - 'flake.nix'
+      - 'pixi.toml'
+      - 'modules/**/*.nix'
+  schedule:
+    - cron: '0 0 1 * *'  # Monthly
+
+jobs:
+  update-analysis:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract package list from flake.nix
+        run: |
+          # Parse commonPackages from flake.nix
+          grep -A 100 'commonPackages = with pkgs;' flake.nix | \
+            grep -oP '^\s+\K\w+' | head -50 > /tmp/nix-packages.txt
+
+      - name: Extract pixi dependencies
+        run: |
+          # Parse dependencies from pixi.toml
+          grep -E '^\w+ = ' pixi.toml | cut -d= -f1 > /tmp/pixi-deps.txt
+
+      - name: Check for tool version updates
+        run: |
+          # Check GitHub releases for tracked tools
+          for tool in aichat aider zed; do
+            gh api repos/sigoden/$tool/releases/latest --jq '.tag_name' 2>/dev/null || true
+          done
+
+      - name: Update timestamp
+        run: |
+          sed -i "s/Last updated:.*/Last updated: $(date +'%B %Y')/" docs/TOOLING-ANALYSIS.md
+```
+
+### Strategy 3: Claude Code Slash Command
+
+**Create a slash command for on-demand updates:**
+
+```markdown
+<!-- .claude/commands/update-analysis.md -->
+Analyze the current codebase and update docs/TOOLING-ANALYSIS.md:
+
+1. Read flake.nix and extract:
+   - All inputs (nixpkgs version, flake-parts, etc.)
+   - All packages in commonPackages, linuxPackages, darwinPackages
+   - All devshell variants
+   - All exported modules
+
+2. Read pixi.toml and extract:
+   - All dependencies with versions
+   - Channels configured
+
+3. Scan modules/ directory for:
+   - All .nix files and their purposes
+   - New modules added since last update
+
+4. Update the following sections:
+   - Current Architecture Details (file tree)
+   - Implementation Status table
+   - Package tables (pixi.toml, flake.nix)
+
+5. Check tool versions against latest releases:
+   - aichat: https://github.com/sigoden/aichat/releases
+   - aider: https://github.com/Aider-AI/aider/releases
+   - zed: https://zed.dev/releases/stable
+
+6. Update "Last updated" timestamp
+```
+
+### Strategy 4: Nix-based Verification
+
+**Add a check to flake.nix:**
+
+```nix
+checks = {
+  analysis-freshness = pkgs.runCommand "check-analysis" {} ''
+    # Verify analysis document exists and is recent
+    if [ ! -f ${./docs/TOOLING-ANALYSIS.md} ]; then
+      echo "ERROR: TOOLING-ANALYSIS.md not found"
+      exit 1
+    fi
+
+    # Check if key packages are documented
+    for pkg in aichat aider-chat helix; do
+      if ! grep -q "$pkg" ${./docs/TOOLING-ANALYSIS.md}; then
+        echo "WARNING: $pkg not documented in analysis"
+      fi
+    done
+
+    touch $out
+  '';
+};
+```
+
+### Recommended Update Triggers
+
+| Event | Action |
+|-------|--------|
+| New package added to flake.nix | Update package tables |
+| New module created in modules/ | Update architecture tree |
+| pixi.toml dependencies changed | Update pixi tables |
+| Monthly schedule | Check for tool version updates |
+| Major release | Full review and research update |
+
+### Automation Priority
+
+1. **Immediate**: Add slash command for manual updates
+2. **Short-term**: Implement pre-commit hook
+3. **Medium-term**: Add GitHub Actions workflow
+4. **Long-term**: Nix-based verification in CI
 
 ---
 
