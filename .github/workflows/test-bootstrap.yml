@@ -201,7 +201,14 @@ jobs:
             Write-Error "WSL cannot access expected path: $wslPath"
           }
 
-          wsl -- bash -n "$wslPath"
+          # Windows checkouts can surface CRLF to WSL via /mnt/* (e.g. `do\r`).
+          # Normalize CR away for syntax validation to avoid false negatives.
+          $raw = Get-Content -Raw -LiteralPath $winPath
+          if ($raw -match "`r") {
+            Write-Warning "bootstrap.sh contains CR characters (CRLF). Normalizing for WSL syntax check."
+          }
+
+          wsl -- bash -lc "tr -d \"`$(printf '\r')\" < \"$wslPath\" | bash -n"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
           Write-Host "bootstrap.sh syntax is valid" -ForegroundColor Green
