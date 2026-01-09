@@ -246,7 +246,7 @@ jobs:
   summary:
     name: AI Tools Summary
     runs-on: ubuntu-latest
-    needs: [verify-aichat, verify-ai-aliases, verify-localai, verify-aios, flake-check]
+    needs: [verify-aichat, verify-aider, verify-ai-aliases, verify-localai, verify-aios, flake-check]
     if: always()
 
     steps:
@@ -259,6 +259,15 @@ jobs:
             echo "✅ **aichat**: Installed and working" >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ **aichat**: ${{ needs.verify-aichat.result }}" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # verify-aider has continue-on-error: true, so report its status appropriately
+          if [ "${{ needs.verify-aider.result }}" == "success" ]; then
+            echo "✅ **aider**: Installed and working" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.verify-aider.result }}" == "skipped" ]; then
+            echo "⏭️ **aider**: Skipped" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ **aider**: ${{ needs.verify-aider.result }} (optional)" >> $GITHUB_STEP_SUMMARY
           fi
 
           if [ "${{ needs.verify-ai-aliases.result }}" == "success" ]; then
