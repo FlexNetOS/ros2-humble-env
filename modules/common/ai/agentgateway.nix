@@ -30,8 +30,13 @@ let
       openssl
     ];
 
-    # Skip tests that might require network or specifics
-    doCheck = false;
+    # Run tests, but try to avoid network-dependent ones.
+    # If the upstream project uses tests named or grouped with "network"/"online",
+    # they will be skipped; otherwise, all tests run as normal.
+    doCheck = true;
+    checkPhase = ''
+      cargo test --offline --tests -- --skip network --skip online
+    '';
 
     meta = with lib; {
       description = "Model Context Protocol (MCP) Gateway";
