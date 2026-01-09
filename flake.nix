@@ -28,28 +28,40 @@
       # Flake-level outputs (not per-system)
       flake = {
         # Export library functions
-        lib = (import ./lib { inherit (nixpkgs) lib; inherit inputs; }) // {
-          # Home-manager modules are not a standard flake output; expose them under lib
-          # to avoid warnings like: "unknown flake output 'homeManagerModules'".
-          homeManagerModules = {
-            common = ./modules/common;
-            linux = ./modules/linux;
-            macos = ./modules/macos;
+        lib =
+          (import ./lib {
+            inherit (nixpkgs) lib;
+            inherit inputs;
+          })
+          // {
+            # Home-manager modules are not a standard flake output; expose them under lib
+            # to avoid warnings like: "unknown flake output 'homeManagerModules'".
+            homeManagerModules = {
+              common = ./modules/common;
+              linux = ./modules/linux;
+              macos = ./modules/macos;
 
-            # Combined module that auto-selects based on platform
-            default =
-              { config, lib, pkgs, ... }:
-              {
-                imports = [
-                  ./modules/common
-                ] ++ lib.optionals pkgs.stdenv.isLinux [
-                  ./modules/linux
-                ] ++ lib.optionals pkgs.stdenv.isDarwin [
-                  ./modules/macos
-                ];
-              };
+              # Combined module that auto-selects based on platform
+              default =
+                {
+                  config,
+                  lib,
+                  pkgs,
+                  ...
+                }:
+                {
+                  imports = [
+                    ./modules/common
+                  ]
+                  ++ lib.optionals pkgs.stdenv.isLinux [
+                    ./modules/linux
+                  ]
+                  ++ lib.optionals pkgs.stdenv.isDarwin [
+                    ./modules/macos
+                  ];
+                };
+            };
           };
-        };
 
         # Export NixOS/Darwin modules (for system-level configuration)
         nixosModules.default = ./modules/linux;
@@ -131,11 +143,11 @@
 
             # Infrastructure & Monitoring (from GitHub resources research)
             # See docs/GITHUB-RESOURCES.md for full analysis
-            prometheus          # Metrics collection for ROS2 DDS
-            nats-server         # WAN/multi-site robot messaging
-            trippy              # Network diagnostics for DDS traffic
-            trivy               # Container/SBOM security scanning
-            opa                 # Policy enforcement for ROS2 topics
+            prometheus # Metrics collection for ROS2 DDS
+            nats-server # WAN/multi-site robot messaging
+            trippy # Network diagnostics for DDS traffic
+            trivy # Container/SBOM security scanning
+            opa # Policy enforcement for ROS2 topics
 
             # Shells
             zsh
@@ -153,25 +165,25 @@
 
             # AI inference (edge/local models)
             # local-ai           # Uncomment when needed - large package (~2GB)
-                                 # Alternative: docker run -p 8080:8080 localai/localai
+            # Alternative: docker run -p 8080:8080 localai/localai
 
             # Audio (for aider voice features)
             portaudio
 
             # Build tools & compilation cache
-            ccache              # Fast C/C++ compilation cache
-            sccache             # Distributed compilation cache (cloud support)used as a compiler wrapper and avoids compilation when possible. Sccache has the capability to utilize caching in remote storage environments, in local storage.
-            mold                # Fast modern linker (12x faster than lld)
-            maturin             # Build tool for PyO3 Rust-Python bindings
+            ccache # Fast C/C++ compilation cache
+            sccache # Distributed compilation cache (cloud support)used as a compiler wrapper and avoids compilation when possible. Sccache has the capability to utilize caching in remote storage environments, in local storage.
+            mold # Fast modern linker (12x faster than lld)
+            maturin # Build tool for PyO3 Rust-Python bindings
 
             # Database tools
-            sqlx-cli            # SQL database CLI for migrations and schema management
+            sqlx-cli # SQL database CLI for migrations and schema management
 
             # Tree-sitter (for LazyVim/Neovim)
             tree-sitter
 
             # Node.js ecosystem (for LazyVim plugins & LLM testing)
-            nodejs_22           # LTS "Jod" - active until Apr 2027
+            nodejs_22 # LTS "Jod" - active until Apr 2027
             nodePackages.pnpm
             # Note: promptfoo (LLM eval/testing) not in nixpkgs - use 'npx promptfoo@latest'
 
@@ -180,18 +192,22 @@
           ];
 
           # Linux-specific packages
-          linuxPackages = with pkgs; optionals isLinux [
-            inotify-tools
-            strace
-            gdb
-          ];
+          linuxPackages =
+            with pkgs;
+            optionals isLinux [
+              inotify-tools
+              strace
+              gdb
+            ];
 
           # macOS-specific packages
-          darwinPackages = with pkgs; optionals isDarwin [
-            coreutils
-            gnused
-            gawk
-          ];
+          darwinPackages =
+            with pkgs;
+            optionals isDarwin [
+              coreutils
+              gnused
+              gawk
+            ];
 
           # Provide common helper commands as real executables (not shell functions), so they
           # are available when CI uses `nix develop --command ...`.
@@ -234,6 +250,10 @@
             '')
           ];
 
+          # CUDA 13.x package set (latest available in nixpkgs)
+          # Falls back to default cudaPackages if 13.1 unavailable
+          cudaPkgs = pkgs.cudaPackages_13_1 or pkgs.cudaPackages_13 or pkgs.cudaPackages;
+
         in
         {
           # Development shell (main entry point)
@@ -246,12 +266,22 @@
             VISUAL = "hx";
 
             shellHook = ''
+              # Ensure TMPDIR is valid (fix for Codespaces/devcontainers)
+              export TMPDIR=''${TMPDIR:-/tmp}
+              [ -d "$TMPDIR" ] || export TMPDIR=/tmp
+              mkdir -p "$TMPDIR" 2>/dev/null || true
+
+              # Define stub functions for RoboStack activation scripts
+              # These are called by conda post-link scripts but don't exist in plain bash
+              noa_add_path() { :; }
+              export -f noa_add_path 2>/dev/null || true
+
               # Initialize pixi environment
               if [ -f pixi.toml ]; then
                 ${optionalString isDarwin ''
                   export DYLD_FALLBACK_LIBRARY_PATH="$PWD/.pixi/envs/default/lib:$DYLD_FALLBACK_LIBRARY_PATH"
                 ''}
-                eval "$(pixi shell-hook)"
+                eval "$(pixi shell-hook 2>/dev/null)" || true
               fi
 
               # Keep startup fast for non-interactive shells (CI, `nix develop --command ...`).
@@ -267,17 +297,32 @@
 
           # Full-featured shell (slower initial download, more tools)
           devShells.full = pkgs.mkShell {
-            packages = basePackages ++ fullExtras ++ coreCommandWrappers ++ aiCommandWrappers ++ linuxPackages ++ darwinPackages;
+            packages =
+              basePackages
+              ++ fullExtras
+              ++ coreCommandWrappers
+              ++ aiCommandWrappers
+              ++ linuxPackages
+              ++ darwinPackages;
             COLCON_DEFAULTS_FILE = toString colconDefaults;
             EDITOR = "hx";
             VISUAL = "hx";
 
             shellHook = ''
+              # Ensure TMPDIR is valid (fix for Codespaces/devcontainers)
+              export TMPDIR=''${TMPDIR:-/tmp}
+              [ -d "$TMPDIR" ] || export TMPDIR=/tmp
+              mkdir -p "$TMPDIR" 2>/dev/null || true
+
+              # Define stub functions for RoboStack activation scripts
+              noa_add_path() { :; }
+              export -f noa_add_path 2>/dev/null || true
+
               if [ -f pixi.toml ]; then
                 ${optionalString isDarwin ''
                   export DYLD_FALLBACK_LIBRARY_PATH="$PWD/.pixi/envs/default/lib:$DYLD_FALLBACK_LIBRARY_PATH"
                 ''}
-                eval "$(pixi shell-hook)"
+                eval "$(pixi shell-hook 2>/dev/null)" || true
               fi
               # Initialize direnv
               eval "$(direnv hook bash)"
@@ -310,31 +355,33 @@
             '';
           };
 
-          # CUDA 13.x package set (latest available in nixpkgs)
-          # Falls back to default cudaPackages if 13.1 unavailable
-          cudaPkgs = pkgs.cudaPackages_13_1 or pkgs.cudaPackages_13 or pkgs.cudaPackages;
-
           # CUDA-enabled shell for GPU workloads
           # Usage: nix develop .#cuda
           # Requires: NVIDIA GPU with drivers installed
           # Binary cache: https://cache.nixos-cuda.org
           devShells.cuda = pkgs.mkShell {
-            packages = commonPackages ++ commandWrappers ++ linuxPackages ++ (with pkgs; [
-              # CUDA Toolkit 13.x (or latest available)
-              # See docs/CONFLICTS.md for version details
-              cudaPkgs.cudatoolkit
-              cudaPkgs.cudnn
-              cudaPkgs.cutensor
-              cudaPkgs.nccl
-              cudaPkgs.cuda_cudart
+            packages =
+              basePackages
+              ++ fullExtras
+              ++ coreCommandWrappers
+              ++ aiCommandWrappers
+              ++ linuxPackages
+              ++ (with pkgs; [
+                # CUDA Toolkit 13.x (or latest available)
+                # See docs/CONFLICTS.md for version details
+                cudaPkgs.cudatoolkit
+                cudaPkgs.cudnn
+                cudaPkgs.cutensor
+                cudaPkgs.nccl
+                cudaPkgs.cuda_cudart
 
-              # GCC 13 pinned for CUDA compatibility
-              # CUDA requires specific GCC versions for nvcc
-              gcc13
+                # GCC 13 pinned for CUDA compatibility
+                # CUDA requires specific GCC versions for nvcc
+                gcc13
 
-              # GPU monitoring
-              nvtopPackages.full
-            ]);
+                # GPU monitoring
+                nvtopPackages.full
+              ]);
 
             COLCON_DEFAULTS_FILE = toString colconDefaults;
             EDITOR = "hx";
@@ -347,12 +394,21 @@
             CXX = "${pkgs.gcc13}/bin/g++";
 
             shellHook = ''
+              # Ensure TMPDIR is valid (fix for Codespaces/devcontainers)
+              export TMPDIR=''${TMPDIR:-/tmp}
+              [ -d "$TMPDIR" ] || export TMPDIR=/tmp
+              mkdir -p "$TMPDIR" 2>/dev/null || true
+
+              # Define stub functions for RoboStack activation scripts
+              noa_add_path() { :; }
+              export -f noa_add_path 2>/dev/null || true
+
               # Set up LD_LIBRARY_PATH for CUDA libraries
               export LD_LIBRARY_PATH="${cudaPkgs.cudatoolkit}/lib:${cudaPkgs.cudnn}/lib:$LD_LIBRARY_PATH"
 
               # Initialize pixi environment with CUDA feature
               if [ -f pixi.toml ]; then
-                eval "$(pixi shell-hook -e cuda 2>/dev/null || pixi shell-hook)"
+                eval "$(pixi shell-hook -e cuda 2>/dev/null || pixi shell-hook 2>/dev/null)" || true
               fi
 
               # Initialize direnv
@@ -386,10 +442,14 @@
                 echo "  pair      - AI pair programming (aider, git-integrated)"
                 echo "  promptfoo - LLM testing & evaluation (robot command parsing)"
                 echo ""
-              '';
-
-              motd = "";
-            };
+              else
+                echo ""
+                echo "⚠️  Warning: nvidia-smi not found"
+                echo "   CUDA toolkit is available but GPU drivers may not be installed."
+                echo "   Install NVIDIA drivers on your host system."
+                echo ""
+              fi
+            '';
 
             # Command aliases
             commands = [
@@ -434,14 +494,6 @@
                 command = "npx promptfoo@latest $@";
               }
             ];
-              else
-                echo ""
-                echo "⚠️  Warning: nvidia-smi not found"
-                echo "   CUDA toolkit is available but GPU drivers may not be installed."
-                echo "   Install NVIDIA drivers on your host system."
-                echo ""
-              fi
-            '';
           };
 
           # Minimal shell for CI
@@ -453,11 +505,19 @@
             COLCON_DEFAULTS_FILE = toString colconDefaults;
 
             shellHook = ''
+              # Ensure TMPDIR is valid
+              export TMPDIR=''${TMPDIR:-/tmp}
+              [ -d "$TMPDIR" ] || export TMPDIR=/tmp
+
+              # Define stub functions for RoboStack activation scripts
+              noa_add_path() { :; }
+              export -f noa_add_path 2>/dev/null || true
+
               if [ -f pixi.toml ]; then
                 ${optionalString isDarwin ''
                   export DYLD_FALLBACK_LIBRARY_PATH="$PWD/.pixi/envs/default/lib:$DYLD_FALLBACK_LIBRARY_PATH"
                 ''}
-                eval "$(pixi shell-hook)"
+                eval "$(pixi shell-hook 2>/dev/null)" || true
               fi
             '';
           };
