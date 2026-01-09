@@ -164,7 +164,7 @@
 
             # Build tools & compilation cache
             ccache              # Fast C/C++ compilation cache
-            sccache             # Distributed compilation cache (cloud support)
+            sccache             # Distributed compilation cache with cloud support
             mold                # Fast modern linker (12x faster than lld)
             maturin             # Build tool for PyO3 Rust-Python bindings
 
@@ -238,12 +238,15 @@
               exec aichat "$@"
             '')
             (pkgs.writeShellScriptBin "pair" ''
-              if command -v aider >/dev/null 2>&1; then
-                exec aider "$@"
-              elif command -v aider-chat >/dev/null 2>&1; then
+              # aider-chat is the nixpkgs package name for aider
+              # Check for aider-chat first (nixpkgs), then aider (pip install)
+              if command -v aider-chat >/dev/null 2>&1; then
                 exec aider-chat "$@"
+              elif command -v aider >/dev/null 2>&1; then
+                exec aider "$@"
               else
-                echo "Neither 'aider' nor 'aider-chat' is available in PATH" >&2
+                echo "Neither 'aider-chat' nor 'aider' is available in PATH" >&2
+                echo "Install via: nix develop .#full (includes aider-chat)" >&2
                 exit 127
               fi
             '')
