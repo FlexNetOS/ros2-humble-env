@@ -5,7 +5,6 @@
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     flake-parts.url = "github:hercules-ci/flake-parts";
     systems.url = "github:nix-systems/default";
-    devshell.url = "github:numtide/devshell";
 
     # Home-manager for user configuration
     home-manager = {
@@ -33,7 +32,6 @@
       nixpkgs,
       flake-parts,
       systems,
-      devshell,
       home-manager,
       holochain-nix,
       ...
@@ -741,59 +739,9 @@
             '';
           };
 
-          # Legacy devshell (for compatibility with existing workflows)
-          devshells.default = {
-            env = [
-              {
-                name = "COLCON_DEFAULTS_FILE";
-                value = toString colconDefaults;
-              }
-            ];
-
-            # Command aliases
-            commands = [
-              {
-                name = "cb";
-                help = "colcon build --symlink-install";
-                command = "colcon build --symlink-install $@";
-              }
-              {
-                name = "ct";
-                help = "colcon test";
-                command = "colcon test $@";
-              }
-              {
-                name = "ctr";
-                help = "colcon test-result --verbose";
-                command = "colcon test-result --verbose";
-              }
-              {
-                name = "ros2-env";
-                help = "Show ROS2 environment variables";
-                command = "env | grep -E '^(ROS|RMW|AMENT|COLCON)' | sort";
-              }
-              {
-                name = "update-deps";
-                help = "Update pixi dependencies";
-                command = "pixi update";
-              }
-              {
-                name = "ai";
-                help = "AI chat assistant (provider-agnostic)";
-                command = "aichat $@";
-              }
-              {
-                name = "pair";
-                help = "AI pair programming with git integration (aider)";
-                command = "aider $@";
-              }
-              {
-                name = "promptfoo";
-                help = "LLM testing and evaluation framework";
-                command = "npx promptfoo@latest $@";
-              }
-            ];
-          };
+          # NOTE: Legacy devshells.default was removed - it required the devshell
+          # flake-parts module which isn't imported. Use devShells.default instead.
+          # The command aliases (cb, ct, ctr, etc.) are available as executable commands in devShells.default.
 
           # Identity & Auth shell for Keycloak/Vaultwarden development (Linux only)
           # Usage: nix develop .#identity
