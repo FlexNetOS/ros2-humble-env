@@ -33,7 +33,7 @@ Configuration file: `manifests/llmops/tensorzero.toml`
 ```toml
 [gateway]
 host = "0.0.0.0"
-port = 3000
+port = 3030
 
 [observability]
 clickhouse_url = "http://tensorzero-clickhouse:8123"
