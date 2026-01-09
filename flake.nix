@@ -583,12 +583,23 @@
                   ''}
 
                   # Generate and execute pixi shell-hook
-                  local pixi_hook
-                  if ! pixi_hook=$(pixi shell-hook 2>&1); then
+                  # Note: Only capture stdout for eval; let stderr pass through for warnings
+                  # Use a temp file to capture stderr for error reporting if command fails
+                  local pixi_hook pixi_stderr_file
+                  pixi_stderr_file=$(mktemp)
+                  if ! pixi_hook=$(pixi shell-hook 2>"$pixi_stderr_file"); then
                     echo "[ros2-env] ERROR: Failed to generate pixi shell-hook" >&2
-                    echo "[ros2-env] pixi output: $pixi_hook" >&2
+                    if [ -s "$pixi_stderr_file" ]; then
+                      echo "[ros2-env] pixi error: $(cat "$pixi_stderr_file")" >&2
+                    fi
+                    rm -f "$pixi_stderr_file"
                     return 1
                   fi
+                  # Show any pixi warnings but don't include them in eval
+                  if [ -s "$pixi_stderr_file" ]; then
+                    cat "$pixi_stderr_file" >&2
+                  fi
+                  rm -f "$pixi_stderr_file"
 
                   # Validate shell-hook output is not empty
                   if [ -z "$pixi_hook" ]; then
