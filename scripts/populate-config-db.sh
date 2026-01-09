@@ -202,8 +202,12 @@ parse_workflows() {
 
             [[ -z "$job_name" ]] && continue
 
+            # Escape single quotes for safe SQL insertion
+            local job_name_escaped=${job_name//\'/\'\'}
+            local runs_on_escaped=${runs_on//\'/\'\'}
+
             sqlite3 "$DB_PATH" "INSERT OR IGNORE INTO workflow_jobs (workflow_id, name, runs_on)
-                VALUES ($workflow_id, '$job_name', '$runs_on');" 2>/dev/null || true
+                VALUES ($workflow_id, '$job_name_escaped', '$runs_on_escaped');" 2>/dev/null || true
         done
 
         # Extract secrets
