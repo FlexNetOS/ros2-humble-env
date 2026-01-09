@@ -5,7 +5,6 @@
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     flake-parts.url = "github:hercules-ci/flake-parts";
     systems.url = "github:nix-systems/default";
-    devshell.url = "github:numtide/devshell";
 
     # Home-manager for user configuration
     home-manager = {
@@ -20,7 +19,6 @@
       nixpkgs,
       flake-parts,
       systems,
-      devshell,
       home-manager,
       ...
     }:
@@ -77,12 +75,18 @@
                 ${optionalString isDarwin "- -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON"}
           '';
 
-          # Common packages for the development shell
-          commonPackages = with pkgs; [
-            # Core tools
+          # Keep the default shell lightweight for fast `direnv` / `nix develop`.
+          # Put heavier/optional tools into `devShells.full`.
+          basePackages = with pkgs; [
             pixi
             git
             gh
+
+            # Python 3.14.2 - Latest stable (for non-ROS2 tools)
+            # ROS2 uses Python 3.11 via Pixi/RoboStack (separate environment)
+            python313
+            python313Packages.pip
+            python313Packages.virtualenv
 
             # Nix tools
             nix-output-monitor
@@ -90,18 +94,25 @@
             nixfmt-rfc-style
             nil
 
+            # Useful basics
+            curl
+            jq
+            direnv
+            nix-direnv
+          ];
+
+          fullExtras = with pkgs; [
+            nix-output-monitor
+            nix-tree
+
             # Shell utilities
             bat
             eza
             fd
             ripgrep
             fzf
-            jq
             yq
-
-            # Archive/Network (explicit for tree-sitter)
             gnutar
-            curl
             wget
             unzip
             gzip
@@ -112,8 +123,6 @@
 
             # Directory navigation
             zoxide
-            direnv
-            nix-direnv
 
             # System monitoring
             btop
@@ -151,7 +160,7 @@
 
             # Build tools & compilation cache
             ccache              # Fast C/C++ compilation cache
-            sccache             # Distributed compilation cache (cloud support)
+            sccache             # Distributed compilation cache (cloud support)used as a compiler wrapper and avoids compilation when possible. Sccache has the capability to utilize caching in remote storage environments, in local storage.
             mold                # Fast modern linker (12x faster than lld)
             maturin             # Build tool for PyO3 Rust-Python bindings
 
@@ -167,7 +176,7 @@
             # Note: promptfoo (LLM eval/testing) not in nixpkgs - use 'npx promptfoo@latest'
 
             # Git tools
-            lazygit             # Git TUI (integrates with LazyVim)
+            lazygit
           ];
 
           # Linux-specific packages
@@ -186,7 +195,7 @@
 
           # Provide common helper commands as real executables (not shell functions), so they
           # are available when CI uses `nix develop --command ...`.
-          commandWrappers = [
+          coreCommandWrappers = [
             (pkgs.writeShellScriptBin "cb" ''
               exec colcon build --symlink-install "$@"
             '')
@@ -202,6 +211,9 @@
             (pkgs.writeShellScriptBin "update-deps" ''
               exec pixi update
             '')
+          ];
+
+          aiCommandWrappers = [
             (pkgs.writeShellScriptBin "ai" ''
               exec aichat "$@"
             '')
@@ -228,7 +240,7 @@
           # Use standard `devShells` (and avoid the devshell flake module) so `nix flake check`
           # stays warning-free on newer Nix.
           devShells.default = pkgs.mkShell {
-            packages = commonPackages ++ commandWrappers ++ linuxPackages ++ darwinPackages;
+            packages = basePackages ++ coreCommandWrappers ++ linuxPackages ++ darwinPackages;
             COLCON_DEFAULTS_FILE = toString colconDefaults;
             EDITOR = "hx";
             VISUAL = "hx";
@@ -242,6 +254,31 @@
                 eval "$(pixi shell-hook)"
               fi
 
+              # Keep startup fast for non-interactive shells (CI, `nix develop --command ...`).
+              if [[ $- == *i* ]]; then
+                echo ""
+                echo "ROS2 Humble Development Environment"
+                echo "=================================="
+                echo "  Platform: ${if isDarwin then "macOS" else "Linux"} (${system})"
+                echo ""
+              fi
+            '';
+          };
+
+          # Full-featured shell (slower initial download, more tools)
+          devShells.full = pkgs.mkShell {
+            packages = basePackages ++ fullExtras ++ coreCommandWrappers ++ aiCommandWrappers ++ linuxPackages ++ darwinPackages;
+            COLCON_DEFAULTS_FILE = toString colconDefaults;
+            EDITOR = "hx";
+            VISUAL = "hx";
+
+            shellHook = ''
+              if [ -f pixi.toml ]; then
+                ${optionalString isDarwin ''
+                  export DYLD_FALLBACK_LIBRARY_PATH="$PWD/.pixi/envs/default/lib:$DYLD_FALLBACK_LIBRARY_PATH"
+                ''}
+                eval "$(pixi shell-hook)"
+              fi
               # Initialize direnv
               eval "$(direnv hook bash)"
 
@@ -256,12 +293,14 @@
               echo "🤖 ROS2 Humble Development Environment"
               echo "======================================"
               echo "  Platform: ${if isDarwin then "macOS" else "Linux"} (${system})"
-              echo "  Shell: bash (use 'zsh' or 'nu' for other shells)"
+              echo "  Python (Nix): ${pkgs.python313.version} (for scripts/tools)"
+              echo "  Python (ROS2): 3.11.x via Pixi/RoboStack"
               echo ""
               echo "Quick commands:"
               echo "  cb     - colcon build --symlink-install"
               echo "  ct     - colcon test"
-              echo "  pixi   - package manager"
+              echo "  pixi   - package manager (ROS2 Python env)"
+              echo "  python3.13 - Nix Python for non-ROS tools"
               echo ""
               echo "AI assistants:"
               echo "  ai        - AI chat (aichat, lightweight)"
@@ -271,17 +310,27 @@
             '';
           };
 
+          # CUDA 13.x package set (latest available in nixpkgs)
+          # Falls back to default cudaPackages if 13.1 unavailable
+          cudaPkgs = pkgs.cudaPackages_13_1 or pkgs.cudaPackages_13 or pkgs.cudaPackages;
+
           # CUDA-enabled shell for GPU workloads
           # Usage: nix develop .#cuda
           # Requires: NVIDIA GPU with drivers installed
+          # Binary cache: https://cache.nixos-cuda.org
           devShells.cuda = pkgs.mkShell {
             packages = commonPackages ++ commandWrappers ++ linuxPackages ++ (with pkgs; [
-              # CUDA Toolkit 12.x (13.1 not yet in nixpkgs as of Jan 2025)
-              # Binary cache: https://cuda-maintainers.cachix.org
-              cudaPackages.cudatoolkit
-              cudaPackages.cudnn
-              cudaPackages.cutensor
-              cudaPackages.nccl
+              # CUDA Toolkit 13.x (or latest available)
+              # See docs/CONFLICTS.md for version details
+              cudaPkgs.cudatoolkit
+              cudaPkgs.cudnn
+              cudaPkgs.cutensor
+              cudaPkgs.nccl
+              cudaPkgs.cuda_cudart
+
+              # GCC 13 pinned for CUDA compatibility
+              # CUDA requires specific GCC versions for nvcc
+              gcc13
 
               # GPU monitoring
               nvtopPackages.full
@@ -292,9 +341,15 @@
             VISUAL = "hx";
 
             # CUDA environment variables
-            CUDA_PATH = "${pkgs.cudaPackages.cudatoolkit}";
+            CUDA_PATH = "${cudaPkgs.cudatoolkit}";
+            # Pin compiler for CUDA compatibility
+            CC = "${pkgs.gcc13}/bin/gcc";
+            CXX = "${pkgs.gcc13}/bin/g++";
 
             shellHook = ''
+              # Set up LD_LIBRARY_PATH for CUDA libraries
+              export LD_LIBRARY_PATH="${cudaPkgs.cudatoolkit}/lib:${cudaPkgs.cudnn}/lib:$LD_LIBRARY_PATH"
+
               # Initialize pixi environment with CUDA feature
               if [ -f pixi.toml ]; then
                 eval "$(pixi shell-hook -e cuda 2>/dev/null || pixi shell-hook)"
@@ -318,7 +373,10 @@
                 nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader 2>/dev/null | head -1 | while read line; do
                   echo "  GPU: $line"
                 done
-                echo "  CUDA: ${pkgs.cudaPackages.cudatoolkit.version}"
+                echo "  CUDA: ${cudaPkgs.cudatoolkit.version}"
+                echo "  GCC: $(${pkgs.gcc13}/bin/gcc --version | head -1)"
+                echo "  Python (Nix): ${pkgs.python313.version}"
+                echo "  Python (ROS2): via Pixi 3.11.x"
                 echo ""
                 echo "PyTorch CUDA verification:"
                 echo "  python -c \"import torch; print(torch.cuda.is_available())\""
@@ -410,7 +468,7 @@
           # Check flake
           checks = {
             # Verify the devshell builds
-            devshell = self.devShells.${system}.default;
+            devshell = self.devShells.${system}.ci;
           };
         };
     };
