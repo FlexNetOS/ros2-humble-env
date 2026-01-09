@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Holochain DHT network configuration for FlexStack",
+  "networks": {
+    "mainnet": {
+      "name": "ripple-mainnet",
+      "description": "Production agent coordination network",
+      "bootstrap_url": "https://bootstrap.ripple.io/mainnet",
+      "signal_url": "wss://signal.ripple.io/mainnet",
+      "persistence": "permanent",
+      "min_peers": 3
+    },
+    "testnet": {
+      "name": "ripple-testnet",
+      "description": "QA/staging validation network",
+      "bootstrap_url": "https://bootstrap.ripple.io/testnet",
+      "signal_url": "wss://signal.ripple.io/testnet",
+      "persistence": "30-day-prune",
+      "min_peers": 2
+    },
+    "local": {
+      "name": "ripple-local",
+      "description": "Development/offline network",
+      "bootstrap_url": null,
+      "signal_url": null,
+      "discovery": "mdns",
+      "persistence": "session-only",
+      "min_peers": 1
+    }
+  },
+  "default_network": "testnet"
+}

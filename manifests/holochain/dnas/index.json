@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "FlexStack Core DNAs for Holochain coordination",
+  "version": "0.1.0",
+  "dnas": {
+    "agent_registry": {
+      "name": "agent_registry",
+      "description": "Node capability advertisement and discovery",
+      "hash": "uhCkk_placeholder_agent_registry",
+      "status": "planned",
+      "zomes": ["capabilities", "heartbeat", "discovery"],
+      "purpose": "Tracks all FlexStack nodes, their capabilities (compute, storage, inference), and availability status"
+    },
+    "resource_mesh": {
+      "name": "resource_mesh",
+      "description": "Compute/storage/inference allocation and scheduling",
+      "hash": "uhCkk_placeholder_resource_mesh",
+      "status": "planned",
+      "zomes": ["resources", "scheduling", "accounting"],
+      "purpose": "Manages distributed resource allocation across the agent mesh"
+    },
+    "policy_store": {
+      "name": "policy_store",
+      "description": "Distributed OPA policy cache and decisions",
+      "hash": "uhCkk_placeholder_policy_store",
+      "status": "planned",
+      "zomes": ["policies", "decisions", "audit"],
+      "purpose": "Stores and distributes OPA policies for decentralized enforcement"
+    },
+    "artifact_index": {
+      "name": "artifact_index",
+      "description": "IPFS CID registry and provenance tracking",
+      "hash": "uhCkk_placeholder_artifact_index",
+      "status": "planned",
+      "zomes": ["artifacts", "provenance", "replication"],
+      "purpose": "Indexes content-addressed artifacts and tracks their provenance"
+    },
+    "memory_shards": {
+      "name": "memory_shards",
+      "description": "Vector DB partition coordination",
+      "hash": "uhCkk_placeholder_memory_shards",
+      "status": "planned",
+      "zomes": ["shards", "routing", "sync"],
+      "purpose": "Coordinates distributed vector memory across nodes"
+    }
+  },
+  "dependencies": {
+    "holochain": ">=0.4.0",
+    "hdk": ">=0.4.0"
+  },
+  "notes": {
+    "migration_plan": "See BUILDKIT_STARTER_SPEC.md Section 9.6 for migration from centralized services to Holochain-native",
+    "postgres_retention": "PostgreSQL remains for: audit logs, analytics/reporting, backup/disaster recovery"
+  }
+}

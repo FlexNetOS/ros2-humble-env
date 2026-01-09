@@ -1,0 +1,39 @@
+# Temporal Dynamic Configuration
+# See: https://docs.temporal.io/references/dynamic-configuration
+
+# Frontend settings
+frontend.enableClientVersionCheck:
+  - value: false
+    constraints: {}
+
+# History settings (workflow execution)
+history.defaultActivityRetryPolicy:
+  - value:
+      InitialIntervalInSeconds: 1
+      MaximumIntervalInSeconds: 100
+      BackoffCoefficient: 2.0
+      MaximumAttempts: 0  # unlimited
+    constraints: {}
+
+# Matching settings (task routing)
+matching.numTaskqueueReadPartitions:
+  - value: 4
+    constraints: {}
+matching.numTaskqueueWritePartitions:
+  - value: 4
+    constraints: {}
+
+# Worker settings
+worker.enableScheduler:
+  - value: true
+    constraints: {}
+
+# System namespace settings
+system.forceSearchAttributesCacheRefreshOnRead:
+  - value: false
+    constraints: {}
+
+# Development convenience settings
+frontend.keepAliveMaxConnectionAgeGrace:
+  - value: "0s"
+    constraints: {}
