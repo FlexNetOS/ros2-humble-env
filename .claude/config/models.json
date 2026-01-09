@@ -1,0 +1,85 @@
+{
+  "$schema": "./schema.json",
+  "description": "Multi-model configuration for ARIA orchestrator",
+
+  "models": {
+    "claude": {
+      "opus": {
+        "id": "claude-opus-4-5-20251101",
+        "use_case": "orchestrator, complex architecture",
+        "cost_tier": "high"
+      },
+      "sonnet": {
+        "id": "claude-sonnet-4-20250514",
+        "use_case": "domain leads, analysis",
+        "cost_tier": "medium"
+      },
+      "haiku": {
+        "id": "claude-haiku-3-5-20241022",
+        "use_case": "validation, counting, fast tasks",
+        "cost_tier": "low"
+      }
+    },
+
+    "openai": {
+      "gpt4": {
+        "id": "gpt-4-turbo",
+        "use_case": "alternative reasoning",
+        "env_key": "OPENAI_API_KEY"
+      },
+      "gpt4o": {
+        "id": "gpt-4o",
+        "use_case": "vision, multimodal",
+        "env_key": "OPENAI_API_KEY"
+      }
+    },
+
+    "local": {
+      "localai": {
+        "id": "localai/llama3",
+        "endpoint": "http://localhost:8080/v1",
+        "use_case": "offline, private data",
+        "env_key": "LOCALAI_API_KEY"
+      },
+      "vllm": {
+        "id": "vllm/mixtral",
+        "endpoint": "http://localhost:8000/v1",
+        "use_case": "high-throughput inference",
+        "env_key": "VLLM_API_KEY"
+      },
+      "ollama": {
+        "id": "ollama/llama3.2",
+        "endpoint": "http://localhost:11434/api",
+        "use_case": "local development",
+        "env_key": null
+      }
+    },
+
+    "anthropic_partners": {
+      "bedrock": {
+        "id": "anthropic.claude-3-5-sonnet-20241022-v2:0",
+        "region": "us-east-1",
+        "use_case": "AWS integration",
+        "env_key": "AWS_ACCESS_KEY_ID"
+      },
+      "vertex": {
+        "id": "claude-3-5-sonnet-v2@20241022",
+        "project": "${GCP_PROJECT_ID}",
+        "use_case": "GCP integration",
+        "env_key": "GOOGLE_APPLICATION_CREDENTIALS"
+      }
+    }
+  },
+
+  "routing": {
+    "default": "claude.sonnet",
+    "by_task": {
+      "orchestration": "claude.opus",
+      "domain_analysis": "claude.sonnet",
+      "validation": "claude.haiku",
+      "vision": "openai.gpt4o",
+      "offline": "local.ollama",
+      "high_throughput": "local.vllm"
+    }
+  }
+}
