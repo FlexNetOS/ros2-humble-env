@@ -31,7 +31,7 @@
 
   "onCreateCommand": "sudo mkdir -p /tmp && sudo chmod 1777 /tmp",
 
-  "postCreateCommand": "echo 'export TMPDIR=/tmp' >> ~/.bashrc && echo 'export TMPDIR=/tmp' >> ~/.zshrc && echo '. /nix/var/nix/profiles/default/etc/profile.d/nix.sh' >> ~/.bashrc && echo '. /nix/var/nix/profiles/default/etc/profile.d/nix.sh' >> ~/.zshrc && bash -lc 'set -euo pipefail; export TMPDIR=/tmp; if command -v nix >/dev/null 2>&1; then nix --version; nix profile install github:nixos/nixpkgs/nixos-unstable#direnv github:nixos/nixpkgs/nixos-unstable#nix-direnv github:nixos/nixpkgs/nixos-unstable#nil github:nixos/nixpkgs/nixos-unstable#nixfmt-rfc-style github:nixos/nixpkgs/nixos-unstable#nix-output-monitor 2>/dev/null || true; fi; echo \"Devcontainer ready. Run: nix develop\"'",
+  "postCreateCommand": "bash -lc \"set -euo pipefail; for shellrc in ~/.bashrc ~/.zshrc; do if [ -f \\\"$shellrc\\\" ]; then grep -qxF 'export TMPDIR=/tmp' \\\"$shellrc\\\" || echo 'export TMPDIR=/tmp' >> \\\"$shellrc\\\"; grep -qxF '. /nix/var/nix/profiles/default/etc/profile.d/nix.sh' \\\"$shellrc\\\" || echo '. /nix/var/nix/profiles/default/etc/profile.d/nix.sh' >> \\\"$shellrc\\\"; fi; done; export TMPDIR=/tmp; if command -v nix >/dev/null 2>&1; then nix --version; nix profile install github:nixos/nixpkgs/nixos-unstable#direnv github:nixos/nixpkgs/nixos-unstable#nix-direnv github:nixos/nixpkgs/nixos-unstable#nil github:nixos/nixpkgs/nixos-unstable#nixfmt-rfc-style github:nixos/nixpkgs/nixos-unstable#nix-output-monitor 2>/dev/null || true; fi; echo \\\"Devcontainer ready. Run: nix develop\\\"\"",
 
   "customizations": {
     "vscode": {
