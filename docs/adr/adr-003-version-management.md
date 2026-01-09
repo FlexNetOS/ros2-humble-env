@@ -49,6 +49,51 @@ Forces:
 
 **Verdict**: 0install would **conflict** with Nix architecture and add complexity with no benefit.
 
+#### Why 0install Conflicts with Nix
+
+0install and Nix fundamentally conflict in their package management approaches:
+
+1. **Store Location Conflict**
+   - **Nix**: Uses `/nix/store/` with cryptographic hashes (e.g., `/nix/store/abc123-git-2.43.0/`)
+   - **0install**: Uses `~/.cache/0install.net/` with SHA256 manifests
+   - Running both creates **duplicate package hierarchies** and PATH confusion
+
+2. **Dependency Resolution**
+   - **Nix**: Closure-based - each package bundles ALL dependencies (pure functional)
+   - **0install**: SAT solver-based - dynamically resolves at runtime
+   - Mixed environments cause **unpredictable library loading**
+
+3. **Build Isolation**
+   - **Nix**: Sandboxed builds with no network access, fixed-output derivations
+   - **0install**: Downloads during "install" phase, relies on feed signatures
+   - 0install's network-during-install **breaks Nix's reproducibility guarantees**
+
+4. **Environment Activation**
+   - **Nix**: `nix develop` or `direnv` modifies PATH to Nix store paths
+   - **0install**: `0install run` launches binaries from 0install cache
+   - **Conflicting PATH precedence** leads to wrong binary versions
+
+5. **Use Case Overlap**
+   - Both solve "install software reproducibly" problem
+   - 0install adds **zero benefit** over Nix for this project:
+     - Nix already handles all 0install use cases
+     - 0install has no ROS2/robotics ecosystem
+     - 0install's decentralization is unused (no custom feeds planned)
+
+**Example Conflict Scenario:**
+```bash
+# Nix provides git 2.43.0
+nix develop  # PATH=/nix/store/abc-git-2.43.0/bin:...
+
+# 0install provides git 2.42.0 from a feed
+0install add https://example.com/git.xml
+
+# Which git runs? Depends on PATH order, breaking reproducibility
+git --version  # 2.43.0 or 2.42.0? Unpredictable!
+```
+
+**Conclusion**: Adding 0install would create a third packaging layer that conflicts with Nix's store model, breaks reproducibility, and provides no unique value for this robotics project.
+
 ### Current Architecture
 
 ```
