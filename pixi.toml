@@ -158,10 +158,14 @@ requests = ">=2.28"
 platformdirs = ">=3.0"
 datasets = ">=2.14"
 
-# Cerebrum Agent SDK (installed via pip post-install)
+# Cerebrum Agent SDK (P0 - Required for AIOS agent development)
 # See: https://github.com/agiresearch/Cerebrum
-# Install: pip install aios-agent-sdk
 pyautogen = ">=0.2"         # AutoGen for multi-agent orchestration
+
+[feature.aios.pypi-dependencies]
+# Cerebrum SDK - AIOS Agent Development Kit (not in conda-forge)
+# P0: Required per BUILDKIT_STARTER_SPEC.md Layer 7
+aios-agent-sdk = ">=0.1"
 
 # =============================================================================
 # AIOS + CUDA Feature
