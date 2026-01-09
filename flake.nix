@@ -172,7 +172,10 @@
             # Note: promptfoo (LLM eval/testing) not in nixpkgs - use 'npx promptfoo@latest'
 
             # Git tools
-            lazygit
+            lazygit             # Git TUI (integrates with LazyVim)
+
+            # Remote development
+            devpod              # Client-only devcontainer environments (any backend)
           ];
 
           # Linux-specific packages
