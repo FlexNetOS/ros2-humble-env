@@ -23,15 +23,32 @@
 
 | Skill | Description |
 |-------|-------------|
-| [ROS2 Development](./skills/ros2-development/README.md) | Building, testing, and running ROS2 packages |
-| [DevOps](./skills/devops/README.md) | CI/CD, GitHub workflows, automation |
-| [Nix Environment](./skills/nix-environment/README.md) | Flakes, home-manager, environment management |
-| [AI Assistants](./skills/ai-assistants/README.md) | AI tools (aichat, aider, LocalAI, AGiXT) |
-| [AIOS & Cerebrum](./skills/aios-cerebrum/README.md) | Agent OS kernel and SDK for building AI agents |
-| [Distributed Systems](./skills/distributed-systems/README.md) | NATS messaging, Temporal workflows |
-| [Rust Tooling](./skills/rust-tooling/README.md) | PyO3 bindings, sqlx, AGiXT Rust SDK |
-| [Observability](./skills/observability/README.md) | Prometheus, OpenTelemetry, monitoring |
-| [LLM Evaluation](./skills/llm-evaluation/README.md) | promptfoo, TruLens, LLM testing |
+| [ROS2 Development](./skills/ros2-development/SKILL.md) | Building, testing, and running ROS2 packages |
+| [DevOps](./skills/devops/SKILL.md) | CI/CD, GitHub workflows, automation |
+| [Nix Environment](./skills/nix-environment/SKILL.md) | Flakes, home-manager, environment management |
+| [AI Assistants](./skills/ai-assistants/SKILL.md) | AI tools (aichat, aider, LocalAI, AGiXT) |
+| [AIOS & Cerebrum](./skills/aios-cerebrum/SKILL.md) | Agent OS kernel and SDK for building AI agents |
+| [Distributed Systems](./skills/distributed-systems/SKILL.md) | NATS messaging, Temporal workflows |
+| [Rust Tooling](./skills/rust-tooling/SKILL.md) | PyO3 bindings, sqlx, AGiXT Rust SDK |
+| [Observability](./skills/observability/SKILL.md) | Prometheus, OpenTelemetry, monitoring |
+| [LLM Evaluation](./skills/llm-evaluation/SKILL.md) | promptfoo, TruLens, LLM testing |
+| [Holochain](./skills/holochain/SKILL.md) | Holochain DHT development, hApps, Zome code |
+| [Kubernetes](./skills/kubernetes/SKILL.md) | K8s manifests, Helm, ArgoCD, Kustomize |
+| [Identity & Auth](./skills/identity-auth/SKILL.md) | Keycloak, OPA, Vault |
+| [Messaging](./skills/messaging/SKILL.md) | NATS pub/sub, Temporal workflows |
+| [Inference](./skills/inference/SKILL.md) | LocalAI, vLLM, GGUF models |
+| [Python Ruff](./skills/python-ruff-tool/SKILL.md) | Linting, formatting, and code modernization |
+| [Python Pyupgrade](./skills/python-pyupgrade-tool/SKILL.md) | Python syntax upgrader |
+| [Python Flynt](./skills/python-flynt-tool/SKILL.md) | F-string converter |
+| [Multi-Model](./skills/multi-model/SKILL.md) | Multi-model orchestration (OpenAI, local, cloud) |
+
+### Configuration Files
+
+| File | Purpose |
+|------|---------|
+| [models.json](./config/models.json) | Multi-model registry and routing |
+| [env.template](./config/env.template) | API key template |
+| [mcp-servers.json](./mcp-servers.json) | MCP server configurations |
 
 ### Architecture Decision Records
 
@@ -48,20 +65,31 @@
 
 #### Core Domain Agents
 
-| Agent | Description |
-|-------|-------------|
-| [Coordinator](./agents/coordinator.md) | Multi-agent task routing and orchestration |
-| [Robotics Agent](./agents/robotics-agent.md) | ROS2 development specialist |
-| [DevOps Agent](./agents/devops-agent.md) | CI/CD and infrastructure specialist |
-| [Nix Agent](./agents/nix-agent.md) | Environment configuration specialist |
+| Agent | Model | Description |
+|-------|-------|-------------|
+| [Coordinator](./agents/coordinator.md) | opus | Multi-agent task routing and orchestration |
+| [Robotics Agent](./agents/robotics-agent.md) | sonnet | ROS2 development specialist |
+| [DevOps Agent](./agents/devops-agent.md) | sonnet | CI/CD and infrastructure specialist |
+| [Nix Agent](./agents/nix-agent.md) | sonnet | Environment configuration specialist |
+| [Kubernetes Agent](./agents/kubernetes-agent.md) | sonnet | K8s, Helm, ArgoCD orchestration |
+| [Identity Agent](./agents/identity-agent.md) | sonnet | Keycloak, OPA, Vault integration |
 
 #### Architecture & Analysis Agents
 
-| Agent | Description |
-|-------|-------------|
-| [Architect Agent](./agents/architect-agent.md) | Full-stack architecture and framework design |
-| [Pre-Verify Agent](./agents/pre-verify-agent.md) | Pre-implementation verification and validation |
-| [Cross-Analysis Agent](./agents/cross-analysis-agent.md) | Codebase analysis and pattern discovery |
+| Agent | Model | Description |
+|-------|-------|-------------|
+| [Architect Agent](./agents/architect-agent.md) | opus | Full-stack architecture and framework design |
+| [Pre-Verify Agent](./agents/pre-verify-agent.md) | haiku | Pre-implementation verification and validation |
+| [Cross-Analysis Agent](./agents/cross-analysis-agent.md) | sonnet | Codebase analysis and pattern discovery |
+
+#### Specialized Agents
+
+| Agent | Model | Description |
+|-------|-------|-------------|
+| [Security Agent](./agents/security-agent.md) | sonnet | Vulnerability scanning, SBOM generation |
+| [Migration Agent](./agents/migration-agent.md) | sonnet | Version upgrades, deprecation management |
+| [Test Runner Agent](./agents/test-runner-agent.md) | haiku | Test execution, coverage analysis |
+| [Docs Agent](./agents/docs-agent.md) | haiku | Documentation, changelog generation |
 
 ### Slash Commands
 
