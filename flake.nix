@@ -21,6 +21,10 @@
     #   url = "github:spartan-holochain-counsel/nix-overlay";
     #   inputs.nixpkgs.follows = "nixpkgs";
     # };
+    holochain-nix = {
+      url = "github:spartan-holochain-counsel/nix-overlay";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -31,7 +35,7 @@
       systems,
       devshell,
       home-manager,
-      # holochain-nix,  # Temporarily disabled - upstream unavailable
+      holochain-nix,
       ...
     }:
     flake-parts.lib.mkFlake { inherit inputs; } {
@@ -94,6 +98,7 @@
             sha256 = "sha256-LZkgXdLY+C+1CxynKzsdtM0g4gC0NJjPP3d24pHPyIU=";
           };
 
+          # Apply Holochain overlay for P2P coordination
           pkgs = import inputs.nixpkgs {
             inherit system;
             config.allowUnfree = true;
