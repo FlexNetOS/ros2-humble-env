@@ -1,0 +1,73 @@
+# Nix
+result
+result-*
+
+# Pixi
+.pixi/
+
+# ROS2 / Colcon build artifacts
+build/
+install/
+log/
+.colcon/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE / Editor
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+*.swp
+*.swo
+*~
+.helix/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment files (secrets)
+.env
+.env.*
+!.env.example
+!.env.agixt.example
+
+# AGiXT data directories (Docker volumes)
+agixt-data/
+
+# Rust build artifacts
+rust/target/
+Cargo.lock
+
+# Claude Code local settings (user-specific)
+.claude/settings.local.json
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Coverage and test artifacts
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+
+# Documentation build
+docs/_build/
+
+# Configuration database (generated)
+data/config.db

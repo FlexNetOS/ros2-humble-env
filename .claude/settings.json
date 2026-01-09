@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "name": "ros2-humble-env",
+  "description": "ROS2 Humble development environment configuration",
+  "model": "claude-sonnet-4-20250514",
+  "permissions": {
+    "allow": [
+      "Bash(git *)",
+      "Bash(colcon *)",
+      "Bash(pixi *)",
+      "Bash(nix *)",
+      "Bash(nom *)",
+      "Bash(ros2 *)",
+      "Bash(direnv *)",
+      "Bash(gh *)",
+      "Bash(cmake *)",
+      "Bash(make *)",
+      "Bash(python *)",
+      "Bash(shellcheck *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(mkdir *)",
+      "Bash(rm -rf build install log)",
+      "Bash(rm -rf rust/target)",
+      "Bash(aichat *)",
+      "Bash(aider *)",
+      "Bash(cargo *)",
+      "Bash(rustc *)",
+      "Bash(rustfmt *)",
+      "Bash(clippy *)",
+      "Bash(rust-analyzer *)",
+      "Bash(docker *)",
+      "Bash(docker-compose *)",
+      "Bash(localai *)",
+      "Bash(agixt *)",
+      "Bash(local-ai *)",
+      "Read",
+      "Write",
+      "Edit",
+      "Glob",
+      "Grep"
+    ],
+    "deny": [
+      "Bash(rm -rf /)",
+      "Bash(rm -rf /*)",
+      "Bash(sudo *)",
+      "Bash(chmod 777 *)",
+      "Bash(eval *)",
+      "Bash(git reset --hard)",
+      "Bash(git push --force)",
+      "Bash(git clean -fdx)",
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(**/secrets/**)",
+      "Read(**/.secrets/**)",
+      "Read(.aws/**)",
+      "Read(.ssh/**)",
+      "Write(.env)",
+      "Write(.env.*)",
+      "Write(.git/config)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "matcher": ".*",
+        "command": [".claude/hooks/session-start.sh"],
+        "timeout": 30000
+      }
+    ]
+  },
+  "context": {
+    "include": [
+      ".claude/CLAUDE.md",
+      ".claude/AGENT.md",
+      ".claude/RULES.md",
+      ".claude/INDEX.md",
+      ".claude/SKILL.md",
+      "README.md",
+      "flake.nix",
+      "pixi.toml"
+    ],
+    "exclude": [
+      "*.lock",
+      "node_modules/**",
+      ".pixi/**",
+      ".git/**",
+      "build/**",
+      "install/**",
+      "log/**",
+      "src/**/build/**",
+      "src/**/install/**",
+      "__pycache__/**",
+      ".pytest_cache/**",
+      ".venv/**",
+      "venv/**"
+    ]
+  }
+}

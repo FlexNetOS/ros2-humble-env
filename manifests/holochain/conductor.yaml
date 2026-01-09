@@ -1,0 +1,81 @@
+# Holochain Conductor Configuration
+# BUILDKIT_STARTER_SPEC.md Section 9.7
+#
+# This configuration defines how the Holochain conductor operates
+# as the backbone of the FlexStack agentic OS.
+#
+# Environment variables:
+#   RIPPLE_DATA: Base data directory (default: ~/.local/share/ripple)
+#   HOLOCHAIN_BOOTSTRAP_URL: Bootstrap server URL
+#   HOLOCHAIN_SIGNAL_URL: WebRTC signal server URL
+
+---
+# Data storage paths
+environment_path: "${RIPPLE_DATA:-~/.local/share/ripple}/holochain"
+
+# Lair keystore connection
+keystore:
+  type: lair_server
+  connection_url: "unix://${RIPPLE_DATA:-~/.local/share/ripple}/lair/socket"
+
+# Admin interface for conductor management
+admin_interfaces:
+  - driver:
+      type: websocket
+      port: 8888
+      allowed_origins: "*"
+
+# App interfaces for hApp connections
+app_interfaces:
+  - driver:
+      type: websocket
+      port: 8889
+      allowed_origins:
+        - "http://localhost:*"
+        - "https://localhost:*"
+        - "http://127.0.0.1:*"
+
+# Network configuration
+network:
+  # Bootstrap service for peer discovery
+  bootstrap_service: "${HOLOCHAIN_BOOTSTRAP_URL:-https://bootstrap.ripple.io/testnet}"
+
+  # Transport configuration
+  transport_pool:
+    - type: webrtc
+      signal_url: "${HOLOCHAIN_SIGNAL_URL:-wss://signal.ripple.io/testnet}"
+
+  # Network tuning parameters
+  tuning_params:
+    # Gossip loop iteration delay (ms)
+    gossip_loop_iteration_delay_ms: 100
+
+    # Agent info expiration (ms) - 20 minutes
+    agent_info_expires_after_ms: 1200000
+
+    # Peer discovery settings
+    disable_publish: false
+    disable_recent_gossip: false
+
+    # Arc settings for DHT sharding
+    arc_clamping: full
+    default_rpc_single_timeout_ms: 60000
+
+# DPKI (Distributed Public Key Infrastructure)
+dpki:
+  # Use Lair for key management
+  instance_id: "flexstack-dpki"
+  network_seed: "${HOLOCHAIN_NETWORK_SEED:-flexstack-default-seed}"
+
+# Conductor behavior
+conductor:
+  # Tracing/logging
+  tracing:
+    enabled: true
+    level: info
+    # Export to OpenTelemetry collector
+    otlp_endpoint: "http://localhost:4317"
+
+  # Resource limits
+  max_concurrent_workflows: 100
+  workflow_timeout_ms: 300000  # 5 minutes
