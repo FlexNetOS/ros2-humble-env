@@ -72,6 +72,24 @@
 | [/flake-check](./commands/flake-check.md) | Validate Nix flake |
 | [/update-deps](./commands/update-deps.md) | Update project dependencies |
 
+### ARIA Orchestrator Commands
+
+| Command | Description |
+|---------|-------------|
+| [/aria-audit](./commands/aria-audit.md) | Comprehensive codebase audit with parallel research teams |
+| [/aria-scan](./commands/aria-scan.md) | Quick scan (discovery only, no deep analysis) |
+| [/aria-audit-nix](./commands/aria-audit-nix.md) | Nix/Flake configuration audit |
+| [/aria-audit-ci](./commands/aria-audit-ci.md) | CI/CD workflows audit |
+| [/aria-audit-agents](./commands/aria-audit-agents.md) | Agents and skills configuration audit |
+| [/aria-tasks](./commands/aria-tasks.md) | Generate task backlog from audit findings |
+
+### Prompts (Reusable Templates)
+
+| Prompt | Description |
+|--------|-------------|
+| [ARIA Orchestrator](./prompts/aria-orchestrator.md) | Multi-agent research and integration architect |
+| [Prompts README](./prompts/README.md) | Prompt design guidelines and usage |
+
 ## Project Structure
 
 ```
@@ -105,7 +123,16 @@ ros2-humble-env/
 │   │   ├── build.md
 │   │   ├── test.md
 │   │   ├── flake-check.md
-│   │   └── update-deps.md
+│   │   ├── update-deps.md
+│   │   ├── aria-audit.md             # ARIA full audit
+│   │   ├── aria-scan.md              # ARIA quick scan
+│   │   ├── aria-audit-nix.md         # ARIA Nix domain
+│   │   ├── aria-audit-ci.md          # ARIA CI/CD domain
+│   │   ├── aria-audit-agents.md      # ARIA agents domain
+│   │   └── aria-tasks.md             # ARIA task generation
+│   ├── prompts/                      # Reusable prompt templates
+│   │   ├── README.md                 # Prompt design guidelines
+│   │   └── aria-orchestrator.md      # ARIA multi-agent orchestrator
 │   ├── agents/                       # Agent role definitions
 │   │   ├── coordinator.md            # Multi-agent orchestration
 │   │   ├── robotics-agent.md         # ROS2 specialist
