@@ -1,7 +1,7 @@
 # ARIA Comprehensive Audit Report
 ## FlexStack ros2-humble-env Repository
 **Generated:** 2026-01-09
-**Audit Version:** 2.0.0 (Post-Implementation Verification)
+**Audit Version:** 2.0.1 (Post-Implementation Verification + Bug Fixes)
 **Methodology:** ARIA (Agentic Research & Integration Architect) Multi-Agent Framework
 
 ---
@@ -590,9 +590,53 @@ Manifests:
 
 ---
 
-## 9. Remaining Items
+## 9. Post-Implementation Issues Found and Fixed
 
-### 9.1 Non-Python Packages (Documented, Not Installed)
+### 9.1 Critical Fix: Rust Crate Name (v2.0.1)
+
+**Issue**: `agixt_sdk` package name was incorrect
+- **Location**: `rust/Cargo.toml`, `rust/agixt-bridge/Cargo.toml`
+- **Problem**: Used underscore (`agixt_sdk`) instead of hyphen (`agixt-sdk`)
+- **Impact**: WSL2 build workflow would fail - `cargo check` could not find package
+- **Fix**: Changed to `agixt-sdk = "0.1"` (correct crates.io package name)
+- **Status**: FIXED
+
+### 9.2 Critical Fix: agixt-sdk API Compatibility
+
+**Issue**: API call signature mismatch with agixt-sdk 0.1.0
+- **Location**: `rust/agixt-bridge/src/client.rs:82`, `rust/agixt-bridge/src/main.rs:122`
+- **Problem**: Called `new_conversation(agent, None, None)` but API expects `(agent_name: &str, conversation_name: &str, conversation_content: Option<Vec<Message>>)`
+- **Impact**: Compilation error in agixt-bridge crate
+- **Fix**: Generate UUID-based conversation names, pass `None` for content
+- **Status**: FIXED
+
+### 9.3 Workspace Dependencies (Non-Blocking)
+
+**Note**: The following workspace.dependencies in `rust/Cargo.toml` have version mismatches with crates.io:
+
+| Crate | Specified | Available | Status |
+|-------|-----------|-----------|--------|
+| `hdk` | 0.4.0 | 0.7.0-dev.4 | Version scheme differs |
+| `holochain` | 0.4.0 | 0.7.0-dev.6 | Version scheme differs |
+| `temporal-compare` | 0.1 | 0.5.0 | Newer available |
+| `strange-loop` | 0.1 | 0.3.0 | Newer available |
+
+**Impact**: Non-blocking - these dependencies are declared but not used by any workspace member (agixt-bridge).
+**Recommendation**: Update versions when adding crates that depend on them.
+
+### 9.4 Workflow Verification Results
+
+| Workflow | Required Files | Status |
+|----------|----------------|--------|
+| `opa-policy-gate.yml` | `config/opa/policies/authz.rego` | EXISTS |
+| `eval-gate.yml` | `pixi.toml` llmops environment | EXISTS |
+| `wsl2-build.yml` | `rust/agixt-bridge` compiles | **FIXED** |
+
+---
+
+## 10. Remaining Items
+
+### 10.1 Non-Python Packages (Documented, Not Installed)
 
 The following packages are Node.js or Rust projects documented in `docs/agent-frameworks.md`:
 - ruvnet/agentic-flow (Node.js)
@@ -600,7 +644,7 @@ The following packages are Node.js or Rust projects documented in `docs/agent-fr
 - ruvnet/Synaptic-Mesh (Rust)
 - ruvnet/daa (Rust)
 
-### 9.2 External Dependencies
+### 10.2 External Dependencies
 
 - FlexNetOS/remote-agentic-coding-system: Repository not found, documented alternative (coleam00/remote-agentic-coding-system)
 
