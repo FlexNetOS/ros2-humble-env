@@ -249,7 +249,7 @@ def cmd_sql(query: str):
     # Additional check: ensure no write operations are present
     write_keywords = ['INSERT', 'UPDATE', 'DELETE', 'DROP', 'CREATE', 'ALTER', 'REPLACE']
     if any(keyword in query_stripped for keyword in write_keywords):
-        print(f"{Colors.RED}Error:{Colors.NC} Write operations (INSERT/UPDATE/DELETE/DROP/CREATE/ALTER) are not allowed.")
+        print(f"{Colors.RED}Error:{Colors.NC} Write operations (INSERT/UPDATE/DELETE/DROP/CREATE/ALTER/REPLACE) are not allowed.")
         print(f"  Use scripts/populate-config-db.py for database modifications.")
         return
     
