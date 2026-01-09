@@ -14,6 +14,12 @@
 
     # Holochain overlay for P2P coordination (BUILDKIT_STARTER_SPEC.md L11)
     # Provides: holochain, hc, lair-keystore
+    # NOTE: This overlay is not a flake - it's loaded via fetchFromGitHub in the overlay section
+    # See: https://github.com/spartan-holochain-counsel/nix-overlay
+    # holochain-nix = {
+    #   url = "github:spartan-holochain-counsel/nix-overlay";
+    #   inputs.nixpkgs.follows = "nixpkgs";
+    # };
     holochain-nix = {
       url = "github:spartan-holochain-counsel/nix-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -81,12 +87,22 @@
         { pkgs, system, ... }:
         let
           # Configure nixpkgs with allowUnfree for packages like vault (BSL license)
+          # Define the holochain source
+          # Note: Using commit hash as the upstream repo has no tagged releases yet
+          holochainSrc = inputs.nixpkgs.legacyPackages.${system}.fetchFromGitHub {
+            owner = "spartan-holochain-counsel";
+            repo = "nix-overlay";
+            rev = "2a321bc7d6d94f169c6071699d9a89acd55039bb";  # Latest commit as of 2026-01-09
+            sha256 = "sha256-LZkgXdLY+C+1CxynKzsdtM0g4gC0NJjPP3d24pHPyIU=";
+          };
+
           # Apply Holochain overlay for P2P coordination
           pkgs = import inputs.nixpkgs {
             inherit system;
             config.allowUnfree = true;
             overlays = [
-              holochain-nix.overlays.default
+              # Holochain overlay - import the overlay function from the repository
+              (import "${holochainSrc}/holochain-overlay/default.nix")
             ];
           };
 
