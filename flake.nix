@@ -1215,6 +1215,539 @@ PROMCFG
             '')
           ];
 
+          # Workflow management command wrappers
+          workflowCommandWrappers = [
+            # GitHub issues query tool
+            (pkgs.writeShellScriptBin "gh-issues" ''
+              # Query and manage GitHub issues
+              # Usage: gh-issues [list|search|create|view|close]
+
+              if ! command -v gh >/dev/null 2>&1; then
+                echo "Error: gh CLI not found" >&2
+                echo "Install with: nix develop" >&2
+                exit 1
+              fi
+
+              case "''${1:-list}" in
+                list)
+                  # List issues with optional state filter
+                  STATE="''${2:-open}"
+                  LIMIT="''${3:-20}"
+                  echo "Issues ($STATE):"
+                  gh issue list --state "$STATE" --limit "$LIMIT"
+                  ;;
+                search)
+                  # Search issues by keyword
+                  if [ -z "$2" ]; then
+                    echo "Usage: gh-issues search <query> [state]" >&2
+                    exit 1
+                  fi
+                  STATE="''${3:-all}"
+                  echo "Searching issues for: $2"
+                  gh issue list --search "$2" --state "$STATE"
+                  ;;
+                labels)
+                  # List issues by label
+                  if [ -z "$2" ]; then
+                    echo "Available labels:"
+                    gh label list
+                  else
+                    echo "Issues with label '$2':"
+                    gh issue list --label "$2"
+                  fi
+                  ;;
+                assigned)
+                  # List issues assigned to user
+                  USER="''${2:-@me}"
+                  echo "Issues assigned to $USER:"
+                  gh issue list --assignee "$USER"
+                  ;;
+                create)
+                  # Create a new issue interactively
+                  shift
+                  gh issue create "$@"
+                  ;;
+                view)
+                  # View issue details
+                  if [ -z "$2" ]; then
+                    echo "Usage: gh-issues view <issue-number>" >&2
+                    exit 1
+                  fi
+                  gh issue view "$2"
+                  ;;
+                close)
+                  # Close an issue
+                  if [ -z "$2" ]; then
+                    echo "Usage: gh-issues close <issue-number> [reason]" >&2
+                    exit 1
+                  fi
+                  REASON="''${3:-completed}"
+                  gh issue close "$2" --reason "$REASON"
+                  ;;
+                reopen)
+                  # Reopen an issue
+                  if [ -z "$2" ]; then
+                    echo "Usage: gh-issues reopen <issue-number>" >&2
+                    exit 1
+                  fi
+                  gh issue reopen "$2"
+                  ;;
+                comment)
+                  # Add comment to issue
+                  if [ -z "$2" ]; then
+                    echo "Usage: gh-issues comment <issue-number> [message]" >&2
+                    exit 1
+                  fi
+                  shift
+                  ISSUE="$1"
+                  shift
+                  if [ -n "$1" ]; then
+                    gh issue comment "$ISSUE" --body "$*"
+                  else
+                    gh issue comment "$ISSUE"
+                  fi
+                  ;;
+                stats)
+                  # Show issue statistics
+                  echo "Issue Statistics"
+                  echo "================"
+                  echo ""
+                  echo "Open issues:   $(gh issue list --state open --json number --jq 'length')"
+                  echo "Closed issues: $(gh issue list --state closed --limit 1000 --json number --jq 'length')"
+                  echo ""
+                  echo "By label:"
+                  gh label list --json name --jq '.[].name' | while read -r label; do
+                    count=$(gh issue list --label "$label" --json number --jq 'length' 2>/dev/null || echo "0")
+                    [ "$count" != "0" ] && echo "  $label: $count"
+                  done
+                  ;;
+                *)
+                  echo "Usage: gh-issues <command> [args]"
+                  echo ""
+                  echo "Commands:"
+                  echo "  list [state] [limit]     - List issues (default: open, 20)"
+                  echo "  search <query> [state]   - Search issues by keyword"
+                  echo "  labels [label]           - List labels or issues with label"
+                  echo "  assigned [user]          - Issues assigned to user (@me default)"
+                  echo "  create                   - Create new issue interactively"
+                  echo "  view <num>               - View issue details"
+                  echo "  close <num> [reason]     - Close issue (completed|not_planned)"
+                  echo "  reopen <num>             - Reopen closed issue"
+                  echo "  comment <num> [msg]      - Add comment to issue"
+                  echo "  stats                    - Show issue statistics"
+                  ;;
+              esac
+            '')
+            # Database query tool
+            (pkgs.writeShellScriptBin "db-query" ''
+              # Query databases (PostgreSQL/SQLite)
+              # Usage: db-query [pg|sqlite] <database> [query]
+
+              DB_TYPE="''${1:-help}"
+
+              case "$DB_TYPE" in
+                pg|postgres)
+                  # PostgreSQL query
+                  DB_NAME="''${2:-postgres}"
+                  DB_HOST="''${DB_HOST:-localhost}"
+                  DB_PORT="''${DB_PORT:-5432}"
+                  DB_USER="''${DB_USER:-postgres}"
+
+                  if [ -z "$3" ]; then
+                    # Interactive mode
+                    echo "Connecting to PostgreSQL: $DB_NAME@$DB_HOST:$DB_PORT"
+                    if command -v pgcli >/dev/null 2>&1; then
+                      pgcli -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME"
+                    else
+                      psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME"
+                    fi
+                  else
+                    # Execute query
+                    shift 2
+                    psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "$*"
+                  fi
+                  ;;
+                sqlite)
+                  # SQLite query
+                  DB_FILE="''${2:-database.db}"
+
+                  if [ ! -f "$DB_FILE" ]; then
+                    echo "Error: SQLite database not found: $DB_FILE" >&2
+                    exit 1
+                  fi
+
+                  if [ -z "$3" ]; then
+                    # Interactive mode
+                    echo "Opening SQLite database: $DB_FILE"
+                    sqlite3 "$DB_FILE"
+                  else
+                    # Execute query
+                    shift 2
+                    sqlite3 "$DB_FILE" "$*"
+                  fi
+                  ;;
+                temporal)
+                  # Query Temporal database
+                  DB_NAME="temporal"
+                  DB_HOST="''${TEMPORAL_DB_HOST:-localhost}"
+                  DB_PORT="''${TEMPORAL_DB_PORT:-5432}"
+                  DB_USER="''${TEMPORAL_DB_USER:-temporal}"
+
+                  echo "Connecting to Temporal database..."
+                  PGPASSWORD="''${TEMPORAL_DB_PASSWORD:-temporal}" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" "''${@:2}"
+                  ;;
+                n8n)
+                  # Query n8n database
+                  DB_NAME="n8n_db"
+                  DB_HOST="''${N8N_DB_HOST:-localhost}"
+                  DB_PORT="''${N8N_DB_PORT:-5432}"
+                  DB_USER="''${N8N_DB_USER:-n8n}"
+
+                  echo "Connecting to n8n database..."
+                  PGPASSWORD="''${N8N_DB_PASSWORD:-n8n_secure_password}" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" "''${@:2}"
+                  ;;
+                tables)
+                  # List tables in a database
+                  shift
+                  if [ "$1" = "pg" ]; then
+                    DB_NAME="''${2:-postgres}"
+                    DB_HOST="''${DB_HOST:-localhost}"
+                    psql -h "$DB_HOST" -U postgres -d "$DB_NAME" -c "\dt"
+                  elif [ "$1" = "sqlite" ]; then
+                    sqlite3 "''${2:-database.db}" ".tables"
+                  else
+                    echo "Usage: db-query tables [pg|sqlite] <database>" >&2
+                  fi
+                  ;;
+                *)
+                  echo "Usage: db-query <type> <database> [query]"
+                  echo ""
+                  echo "Database types:"
+                  echo "  pg|postgres <db> [query] - PostgreSQL database"
+                  echo "  sqlite <file> [query]    - SQLite database file"
+                  echo "  temporal [query]         - Temporal workflow database"
+                  echo "  n8n [query]              - n8n automation database"
+                  echo "  tables <type> <db>       - List tables in database"
+                  echo ""
+                  echo "Environment variables:"
+                  echo "  DB_HOST, DB_PORT, DB_USER - PostgreSQL connection"
+                  echo "  TEMPORAL_DB_* / N8N_DB_*  - Service-specific settings"
+                  echo ""
+                  echo "Examples:"
+                  echo "  db-query pg mydb 'SELECT * FROM users'"
+                  echo "  db-query sqlite ./data.db '.schema'"
+                  echo "  db-query temporal 'SELECT * FROM executions LIMIT 10'"
+                  ;;
+              esac
+            '')
+            # Temporal workflow management
+            (pkgs.writeShellScriptBin "temporal-ctl" ''
+              # Temporal workflow management
+              # Usage: temporal-ctl [status|workflows|start|query]
+
+              TEMPORAL_ADDRESS="''${TEMPORAL_ADDRESS:-localhost:7233}"
+              TEMPORAL_NAMESPACE="''${TEMPORAL_NAMESPACE:-default}"
+              TEMPORAL_UI="''${TEMPORAL_UI:-http://localhost:8088}"
+
+              case "''${1:-status}" in
+                status)
+                  echo "Temporal Status"
+                  echo "==============="
+                  echo "  Address:   $TEMPORAL_ADDRESS"
+                  echo "  Namespace: $TEMPORAL_NAMESPACE"
+                  echo "  Web UI:    $TEMPORAL_UI"
+                  echo ""
+                  if command -v temporal >/dev/null 2>&1; then
+                    temporal operator cluster health --address "$TEMPORAL_ADDRESS" 2>/dev/null && echo "  Status: HEALTHY" || echo "  Status: UNAVAILABLE"
+                  elif curl -sf "$TEMPORAL_UI" >/dev/null 2>&1; then
+                    echo "  Status: UI REACHABLE (CLI not installed)"
+                  else
+                    echo "  Status: UNAVAILABLE"
+                    echo ""
+                    echo "Start with: docker compose -f docker-compose.temporal.yml up -d"
+                  fi
+                  ;;
+                workflows|list)
+                  # List workflows
+                  if command -v temporal >/dev/null 2>&1; then
+                    echo "Recent Workflows (namespace: $TEMPORAL_NAMESPACE):"
+                    temporal workflow list --namespace "$TEMPORAL_NAMESPACE" --address "$TEMPORAL_ADDRESS" "''${@:2}"
+                  else
+                    echo "Temporal CLI not installed. Using API..."
+                    curl -s "$TEMPORAL_UI/api/v1/namespaces/$TEMPORAL_NAMESPACE/workflows" 2>/dev/null | jq '.executions[:10]' || echo "Unable to query workflows"
+                  fi
+                  ;;
+                running)
+                  # List running workflows
+                  temporal workflow list --namespace "$TEMPORAL_NAMESPACE" --address "$TEMPORAL_ADDRESS" --query "ExecutionStatus='Running'"
+                  ;;
+                failed)
+                  # List failed workflows
+                  temporal workflow list --namespace "$TEMPORAL_NAMESPACE" --address "$TEMPORAL_ADDRESS" --query "ExecutionStatus='Failed'"
+                  ;;
+                describe)
+                  # Describe a workflow
+                  if [ -z "$2" ]; then
+                    echo "Usage: temporal-ctl describe <workflow-id>" >&2
+                    exit 1
+                  fi
+                  temporal workflow describe --namespace "$TEMPORAL_NAMESPACE" --address "$TEMPORAL_ADDRESS" --workflow-id "$2"
+                  ;;
+                history)
+                  # Get workflow history
+                  if [ -z "$2" ]; then
+                    echo "Usage: temporal-ctl history <workflow-id>" >&2
+                    exit 1
+                  fi
+                  temporal workflow show --namespace "$TEMPORAL_NAMESPACE" --address "$TEMPORAL_ADDRESS" --workflow-id "$2"
+                  ;;
+                terminate)
+                  # Terminate a workflow
+                  if [ -z "$2" ]; then
+                    echo "Usage: temporal-ctl terminate <workflow-id> [reason]" >&2
+                    exit 1
+                  fi
+                  REASON="''${3:-Terminated via temporal-ctl}"
+                  temporal workflow terminate --namespace "$TEMPORAL_NAMESPACE" --address "$TEMPORAL_ADDRESS" --workflow-id "$2" --reason "$REASON"
+                  ;;
+                namespaces)
+                  # List namespaces
+                  temporal operator namespace list --address "$TEMPORAL_ADDRESS"
+                  ;;
+                ui)
+                  # Open Temporal UI
+                  echo "Opening Temporal UI: $TEMPORAL_UI"
+                  if command -v xdg-open >/dev/null 2>&1; then
+                    xdg-open "$TEMPORAL_UI"
+                  elif command -v open >/dev/null 2>&1; then
+                    open "$TEMPORAL_UI"
+                  else
+                    echo "Open in browser: $TEMPORAL_UI"
+                  fi
+                  ;;
+                *)
+                  echo "Usage: temporal-ctl <command> [args]"
+                  echo ""
+                  echo "Commands:"
+                  echo "  status                - Check Temporal service status"
+                  echo "  workflows|list        - List recent workflows"
+                  echo "  running               - List running workflows"
+                  echo "  failed                - List failed workflows"
+                  echo "  describe <id>         - Describe workflow by ID"
+                  echo "  history <id>          - Show workflow event history"
+                  echo "  terminate <id> [msg]  - Terminate a workflow"
+                  echo "  namespaces            - List namespaces"
+                  echo "  ui                    - Open Temporal Web UI"
+                  echo ""
+                  echo "Environment:"
+                  echo "  TEMPORAL_ADDRESS   - Server address (default: localhost:7233)"
+                  echo "  TEMPORAL_NAMESPACE - Namespace (default: default)"
+                  echo "  TEMPORAL_UI        - Web UI URL (default: http://localhost:8088)"
+                  ;;
+              esac
+            '')
+            # n8n workflow management
+            (pkgs.writeShellScriptBin "n8n-ctl" ''
+              # n8n workflow automation management
+              # Usage: n8n-ctl [status|workflows|executions|start|stop]
+
+              N8N_HOST="''${N8N_HOST:-localhost}"
+              N8N_PORT="''${N8N_PORT:-5678}"
+              N8N_URL="http://$N8N_HOST:$N8N_PORT"
+              N8N_API_KEY="''${N8N_API_KEY:-}"
+
+              # API helper
+              n8n_api() {
+                if [ -n "$N8N_API_KEY" ]; then
+                  curl -sf -H "X-N8N-API-KEY: $N8N_API_KEY" "$N8N_URL/api/v1$1"
+                else
+                  curl -sf "$N8N_URL/api/v1$1"
+                fi
+              }
+
+              case "''${1:-status}" in
+                status)
+                  echo "n8n Status"
+                  echo "=========="
+                  echo "  URL: $N8N_URL"
+                  if curl -sf "$N8N_URL/healthz" >/dev/null 2>&1; then
+                    echo "  Status: HEALTHY"
+                    echo ""
+                    echo "  Workflows: $(n8n_api '/workflows' 2>/dev/null | jq '.data | length' || echo 'N/A')"
+                  else
+                    echo "  Status: UNAVAILABLE"
+                    echo ""
+                    echo "Start with: docker compose -f docker-compose.automation.yml up -d"
+                  fi
+                  ;;
+                workflows|list)
+                  echo "n8n Workflows:"
+                  n8n_api '/workflows' | jq -r '.data[] | "  [\(.active | if . then "ON" else "OFF" end)] \(.id): \(.name)"' 2>/dev/null || echo "Unable to list workflows"
+                  ;;
+                executions)
+                  # List recent executions
+                  LIMIT="''${2:-10}"
+                  echo "Recent Executions (last $LIMIT):"
+                  n8n_api "/executions?limit=$LIMIT" | jq -r '.data[] | "  [\(.status)] \(.id) - \(.workflowData.name // "Unknown") (\(.startedAt))"' 2>/dev/null || echo "Unable to list executions"
+                  ;;
+                failed)
+                  # List failed executions
+                  echo "Failed Executions:"
+                  n8n_api '/executions?status=error&limit=20' | jq -r '.data[] | "  \(.id) - \(.workflowData.name // "Unknown") (\(.startedAt))"' 2>/dev/null || echo "Unable to list failed executions"
+                  ;;
+                activate)
+                  # Activate a workflow
+                  if [ -z "$2" ]; then
+                    echo "Usage: n8n-ctl activate <workflow-id>" >&2
+                    exit 1
+                  fi
+                  curl -sf -X PATCH -H "Content-Type: application/json" \
+                    -d '{"active": true}' \
+                    "$N8N_URL/api/v1/workflows/$2" | jq '.active'
+                  echo "Workflow $2 activated"
+                  ;;
+                deactivate)
+                  # Deactivate a workflow
+                  if [ -z "$2" ]; then
+                    echo "Usage: n8n-ctl deactivate <workflow-id>" >&2
+                    exit 1
+                  fi
+                  curl -sf -X PATCH -H "Content-Type: application/json" \
+                    -d '{"active": false}' \
+                    "$N8N_URL/api/v1/workflows/$2" | jq '.active'
+                  echo "Workflow $2 deactivated"
+                  ;;
+                ui)
+                  # Open n8n UI
+                  echo "Opening n8n UI: $N8N_URL"
+                  if command -v xdg-open >/dev/null 2>&1; then
+                    xdg-open "$N8N_URL"
+                  elif command -v open >/dev/null 2>&1; then
+                    open "$N8N_URL"
+                  else
+                    echo "Open in browser: $N8N_URL"
+                  fi
+                  ;;
+                *)
+                  echo "Usage: n8n-ctl <command> [args]"
+                  echo ""
+                  echo "Commands:"
+                  echo "  status              - Check n8n service status"
+                  echo "  workflows|list      - List all workflows"
+                  echo "  executions [limit]  - List recent executions"
+                  echo "  failed              - List failed executions"
+                  echo "  activate <id>       - Activate a workflow"
+                  echo "  deactivate <id>     - Deactivate a workflow"
+                  echo "  ui                  - Open n8n Web UI"
+                  echo ""
+                  echo "Environment:"
+                  echo "  N8N_HOST    - n8n host (default: localhost)"
+                  echo "  N8N_PORT    - n8n port (default: 5678)"
+                  echo "  N8N_API_KEY - API key for authentication"
+                  ;;
+              esac
+            '')
+            # Workflow status dashboard
+            (pkgs.writeShellScriptBin "workflow-status" ''
+              # Combined workflow status dashboard
+              # Usage: workflow-status [all|github|temporal|n8n|docker]
+
+              check_service() {
+                local name="$1"
+                local url="$2"
+                local status
+                if curl -sf --connect-timeout 2 "$url" >/dev/null 2>&1; then
+                  status="UP"
+                else
+                  status="DOWN"
+                fi
+                printf "  %-20s %s\n" "$name:" "$status"
+              }
+
+              case "''${1:-all}" in
+                all)
+                  echo "========================================"
+                  echo "       Workflow Infrastructure Status"
+                  echo "========================================"
+                  echo ""
+
+                  echo "Services:"
+                  check_service "Temporal" "http://localhost:8088"
+                  check_service "n8n" "http://localhost:5678/healthz"
+                  check_service "Prometheus" "http://localhost:9090/-/ready"
+                  check_service "NATS" "http://localhost:8222/varz"
+                  check_service "Keycloak" "http://localhost:8080"
+                  check_service "Vault" "http://localhost:8200/v1/sys/health"
+                  echo ""
+
+                  echo "GitHub Issues:"
+                  if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+                    OPEN=$(gh issue list --state open --json number --jq 'length' 2>/dev/null || echo "?")
+                    printf "  %-20s %s\n" "Open issues:" "$OPEN"
+                  else
+                    echo "  (gh CLI not authenticated)"
+                  fi
+                  echo ""
+
+                  echo "Docker Containers:"
+                  if command -v docker >/dev/null 2>&1; then
+                    RUNNING=$(docker ps -q 2>/dev/null | wc -l)
+                    printf "  %-20s %s\n" "Running:" "$RUNNING"
+                  else
+                    echo "  (docker not available)"
+                  fi
+                  echo ""
+
+                  echo "========================================"
+                  ;;
+                github)
+                  echo "GitHub Status"
+                  echo "============="
+                  if command -v gh >/dev/null 2>&1; then
+                    echo ""
+                    echo "Issues:"
+                    echo "  Open:   $(gh issue list --state open --json number --jq 'length' 2>/dev/null || echo 'N/A')"
+                    echo "  Closed: $(gh issue list --state closed --limit 1000 --json number --jq 'length' 2>/dev/null || echo 'N/A')"
+                    echo ""
+                    echo "Pull Requests:"
+                    echo "  Open:   $(gh pr list --state open --json number --jq 'length' 2>/dev/null || echo 'N/A')"
+                    echo "  Merged: $(gh pr list --state merged --limit 100 --json number --jq 'length' 2>/dev/null || echo 'N/A')"
+                    echo ""
+                    echo "Recent Activity:"
+                    gh issue list --limit 5 2>/dev/null | head -5
+                  else
+                    echo "gh CLI not available"
+                  fi
+                  ;;
+                temporal)
+                  exec temporal-ctl status
+                  ;;
+                n8n)
+                  exec n8n-ctl status
+                  ;;
+                docker)
+                  echo "Docker Container Status"
+                  echo "======================="
+                  if command -v docker >/dev/null 2>&1; then
+                    docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || echo "Docker not running"
+                  else
+                    echo "Docker not available"
+                  fi
+                  ;;
+                *)
+                  echo "Usage: workflow-status [all|github|temporal|n8n|docker]"
+                  echo ""
+                  echo "Commands:"
+                  echo "  all      - Show all services status (default)"
+                  echo "  github   - GitHub issues and PRs status"
+                  echo "  temporal - Temporal workflow engine status"
+                  echo "  n8n      - n8n automation platform status"
+                  echo "  docker   - Docker containers status"
+                  ;;
+              esac
+            '')
+          ];
+
           # CUDA 13.x package set (latest available in nixpkgs)
           # Falls back to default cudaPackages if 13.1 unavailable
           cudaPkgs = pkgs.cudaPackages_13_1 or pkgs.cudaPackages_13 or pkgs.cudaPackages;
@@ -1371,6 +1904,7 @@ PROMCFG
               ++ infraCommandWrappers
               ++ securityCommandWrappers
               ++ devCommandWrappers
+              ++ workflowCommandWrappers
               ++ aiCommandWrappers
               ++ linuxPackages
               ++ darwinPackages;
@@ -1460,7 +1994,7 @@ PROMCFG
           # Requires: NVIDIA GPU with drivers installed
           # Binary cache: https://cache.nixos-cuda.org
           devShells.cuda = pkgs.mkShell {
-            packages = basePackages ++ fullExtras ++ holochainPackages ++ coreCommandWrappers ++ ros2CommandWrappers ++ infraCommandWrappers ++ securityCommandWrappers ++ devCommandWrappers ++ aiCommandWrappers ++ linuxPackages ++ (with pkgs; [
+            packages = basePackages ++ fullExtras ++ holochainPackages ++ coreCommandWrappers ++ ros2CommandWrappers ++ infraCommandWrappers ++ securityCommandWrappers ++ devCommandWrappers ++ workflowCommandWrappers ++ aiCommandWrappers ++ linuxPackages ++ (with pkgs; [
               # CUDA Toolkit 13.x (or latest available)
               # See docs/CONFLICTS.md for version details
               cudaPkgs.cudatoolkit
