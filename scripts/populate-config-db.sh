@@ -22,11 +22,11 @@ log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
 # Safely escape a value for use in SQL string literal
-# Escapes single quotes and backslashes properly for SQLite
+# Escapes single quotes properly for SQLite (SQL standard)
 sql_escape() {
     local value="$1"
-    # Replace single quotes with two single quotes (SQL standard escaping)
-    # and handle backslashes
+    # SQLite uses SQL standard escaping: single quotes are escaped by doubling them
+    # Backslashes do NOT need escaping in SQLite as they are not special characters
     printf '%s' "$value" | sed "s/'/''/g"
 }
 
