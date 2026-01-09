@@ -1,4 +1,6 @@
 {
+  description = "ROS2 Humble development environment with Nix flakes and pixi";
+
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     flake-parts.url = "github:hercules-ci/flake-parts";
@@ -21,18 +23,63 @@
 
   outputs =
     inputs@{
+      self,
+      nixpkgs,
       flake-parts,
       systems,
       devshell,
       home-manager,
       holochain-nix,
+      home-manager,
       ...
     }:
     flake-parts.lib.mkFlake { inherit inputs; } {
       systems = import systems;
-      imports = [
-        devshell.flakeModule
-      ];
+
+      # Flake-level outputs (not per-system)
+      flake = {
+        # Export library functions
+        lib =
+          (import ./lib {
+            inherit (nixpkgs) lib;
+            inherit inputs;
+          })
+          // {
+            # Home-manager modules are not a standard flake output; expose them under lib
+            # to avoid warnings like: "unknown flake output 'homeManagerModules'".
+            homeManagerModules = {
+              common = ./modules/common;
+              linux = ./modules/linux;
+              macos = ./modules/macos;
+
+              # Combined module that auto-selects based on platform
+              default =
+                {
+                  config,
+                  lib,
+                  pkgs,
+                  ...
+                }:
+                {
+                  imports = [
+                    ./modules/common
+                  ]
+                  ++ lib.optionals pkgs.stdenv.isLinux [
+                    ./modules/linux
+                  ]
+                  ++ lib.optionals pkgs.stdenv.isDarwin [
+                    ./modules/macos
+                  ];
+                };
+            };
+          };
+
+        # Export NixOS/Darwin modules (for system-level configuration)
+        nixosModules.default = ./modules/linux;
+        darwinModules.default = ./modules/macos;
+      };
+
+      # Per-system outputs
       perSystem =
         { pkgs, system, ... }:
         let
@@ -52,10 +99,18 @@
             hc              # Holochain dev CLI (scaffold/package/run)
             lair-keystore   # Secure keystore for Holochain agent keys
           ];
+        { system, ... }:
+        let
+          # Configure nixpkgs with allowUnfree for packages like vault (BSL license)
+          pkgs = import nixpkgs {
+            inherit system;
+            config.allowUnfree = true;
+          };
           inherit (pkgs.lib) optionalString optionals optionalAttrs;
           isDarwin = pkgs.stdenv.isDarwin;
           isLinux = pkgs.stdenv.isLinux;
 
+          # Colcon defaults configuration
           colconDefaults = pkgs.writeText "defaults.yaml" ''
             build:
               cmake-args:
@@ -123,6 +178,18 @@
             trippy              # Network diagnostics for DDS traffic
             trivy               # Container/SBOM security scanning
             opa                 # Policy enforcement for ROS2 topics
+            syft                # SBOM generation
+            grype               # Vulnerability scanning from SBOM
+            cosign              # Container image signing and verification
+            opa                 # Policy enforcement for ROS2 topics
+            kubectl             # Kubernetes CLI for cluster management
+            helm                # Kubernetes package manager
+            kustomize           # Kubernetes configuration management
+            containerd          # Container runtime
+            
+            # Additional tools from BUILDKIT_STARTER_SPEC
+            neovim              # Editor
+            sqlite              # Local database
 
             # Secrets Management (see docs/GITHUB-RESOURCES.md)
             # Note: Vault uses BSL license - requires NIXPKGS_ALLOW_UNFREE=1
@@ -542,6 +609,8 @@
               echo ""
               echo "ROS2 Humble Development Environment (Full)"
               echo "==========================================="
+              echo "🤖 ROS2 Humble Development Environment"
+              echo "======================================"
               echo "  Platform: ${if isDarwin then "macOS" else "Linux"} (${system})"
               echo "  Python (Nix): ${pkgs.python313.version} (for scripts/tools)"
               echo "  Python (ROS2): 3.11.x via Pixi/RoboStack"
@@ -578,6 +647,7 @@
           # Binary cache: https://cache.nixos-cuda.org
           devShells.cuda = pkgs.mkShell {
             packages = basePackages ++ fullExtras ++ holochainPackages ++ coreCommandWrappers ++ aiCommandWrappers ++ linuxPackages ++ (with pkgs; [
+            packages = basePackages ++ fullExtras ++ coreCommandWrappers ++ aiCommandWrappers ++ linuxPackages ++ (with pkgs; [
               # CUDA Toolkit 13.x (or latest available)
               # See docs/CONFLICTS.md for version details
               cudaPkgs.cudatoolkit
@@ -633,9 +703,10 @@
 
               # Verify CUDA availability
               if command -v nvidia-smi &> /dev/null; then
-                echo ""
-                echo "ROS2 Humble + CUDA Development Environment"
+                echo "
                 echo "==========================================="
+                echo "🚀 ROS2 Humble + CUDA Development Environment"
+                echo "=============================================="
                 echo "  Platform: Linux (${system}) with NVIDIA GPU"
                 nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader 2>/dev/null | head -1 | while read line; do
                   echo "  GPU: $line"
@@ -655,7 +726,7 @@
                 echo ""
               else
                 echo ""
-                echo "Warning: nvidia-smi not found"
+                echo "⚠️  Warning: nvidia-smi not found"
                 echo "   CUDA toolkit is available but GPU drivers may not be installed."
                 echo "   Install NVIDIA drivers on your host system."
                 echo ""
@@ -666,25 +737,117 @@
           # Legacy devshell (for compatibility with existing workflows)
           devshells.default = {
             env = [
+
+            # Command aliases
+            commands = [
               {
-                name = "COLCON_DEFAULTS_FILE";
-                value = toString colconDefaults;
+                name = "cb";
+                help = "colcon build --symlink-install";
+                command = "colcon build --symlink-install $@";
+              }
+              {
+                name = "ct";
+                help = "colcon test";
+                command = "colcon test $@";
+              }
+              {
+                name = "ctr";
+                help = "colcon test-result --verbose";
+                command = "colcon test-result --verbose";
+              }
+              {
+                name = "ros2-env";
+                help = "Show ROS2 environment variables";
+                command = "env | grep -E '^(ROS|RMW|AMENT|COLCON)' | sort";
+              }
+              {
+                name = "update-deps";
+                help = "Update pixi dependencies";
+                command = "pixi update";
+              }
+              {
+                name = "ai";
+                help = "AI chat assistant (provider-agnostic)";
+                command = "aichat $@";
+              }
+              {
+                name = "pair";
+                help = "AI pair programming with git integration (aider)";
+                command = "aider $@";
+              }
+              {
+                name = "promptfoo";
+                help = "LLM testing and evaluation framework";
+                command = "npx promptfoo@latest $@";
               }
             ];
-            devshell = {
-              packages = with pkgs; [
-                pixi
-              ];
-              startup.activate.text = ''
-                if [ -f pixi.toml ]; then
-                  ${optionalString isDarwin ''
-                    export DYLD_FALLBACK_LIBRARY_PATH="$PWD/.pixi/envs/default/lib:$DYLD_FALLBACK_LIBRARY_PATH"
-                  ''}
-                  eval "$(pixi shell-hook)";
-                fi
-              '';
-              motd = "";
-            };
+          };
+
+          # Identity & Auth shell for Keycloak/Vaultwarden development (Linux only)
+          # Usage: nix develop .#identity
+          # Heavy dependencies: Java 21, PostgreSQL
+          devShells.identity = pkgs.mkShell {
+            packages = basePackages ++ coreCommandWrappers ++ linuxPackages ++ (with pkgs; [
+              # Identity & Access Management
+              keycloak             # OAuth2/OIDC identity provider (Java 21)
+              vaultwarden          # Bitwarden-compatible password manager (Rust)
+
+              # Database backends
+              postgresql_15        # PostgreSQL for Keycloak/Vaultwarden
+              sqlite               # SQLite for lightweight Vaultwarden
+
+              # Java runtime (required by Keycloak)
+              jdk21_headless       # Java 21 LTS (headless for servers)
+
+              # Database tools
+              pgcli                # PostgreSQL CLI with autocomplete
+            ]);
+
+            COLCON_DEFAULTS_FILE = toString colconDefaults;
+            EDITOR = "hx";
+            VISUAL = "hx";
+
+            # Java environment
+            JAVA_HOME = "${pkgs.jdk21_headless}";
+
+            shellHook = ''
+              # Ensure TMPDIR is valid
+              export TMPDIR=''${TMPDIR:-/tmp}
+              [ -d "$TMPDIR" ] || export TMPDIR=/tmp
+
+              # Define stub functions for RoboStack activation scripts
+              noa_add_path() { :; }
+              export -f noa_add_path 2>/dev/null || true
+
+              if [ -f pixi.toml ]; then
+                ${optionalString isDarwin ''
+                  export DYLD_FALLBACK_LIBRARY_PATH="$PWD/.pixi/envs/default/lib:$DYLD_FALLBACK_LIBRARY_PATH"
+                ''}
+                eval "$(pixi shell-hook 2>/dev/null)" || true
+              fi
+
+              echo ""
+              echo "🔐 Identity & Auth Development Environment"
+              echo "=========================================="
+              echo "  Platform: Linux (${system})"
+              echo "  Java: $(java -version 2>&1 | head -1)"
+              echo "  PostgreSQL: ${pkgs.postgresql_15.version}"
+              echo ""
+              echo "Available services:"
+              echo "  keycloak        - OAuth2/OIDC identity provider"
+              echo "  vaultwarden     - Bitwarden-compatible password manager"
+              echo ""
+              echo "Quick start:"
+              echo "  # Start PostgreSQL (for Keycloak)"
+              echo "  initdb -D ./pgdata && pg_ctl -D ./pgdata start"
+              echo ""
+              echo "  # Start Keycloak in dev mode"
+              echo "  keycloak start-dev --http-port=8080"
+              echo ""
+              echo "  # Start Vaultwarden (SQLite)"
+              echo "  vaultwarden"
+              echo ""
+            '';
           };
         };
     };

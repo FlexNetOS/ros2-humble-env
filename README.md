@@ -1,179 +1,588 @@
-# ros2-humble-env
+# Riple Environment and Binary Creation
 
-a reproducible and declarative development environment for ros2 humble using nix flakes and pixi for cross-platform compatibility. this repository is meant to be used as a "template" repository for robotics projects to offer a easy starting environment with a working ros2 install.
+- Uses the original environment template setup from "ros2-humble-env" to create a WSL2 distro.
+- A reproducible and declarative development environment for ROS2 Humble using Nix flakes and pixi for cross-platform compatibility.
+- This repository is meant to be used as a "template" repository for robotics projects to offer an easy starting environment with a working ROS2 install.
 
-## overview
+## Quick Start
 
-this repository provides a complete development setup for ros2 humble with all necessary build tools and dependencies pre-configured. the environment seems to work properly both on linux and macos (x86 and arm64) using:
+### Windows (WSL2 + NixOS)
 
-- **nix flakes**: for reproducible, declarative environment setup
-- **pixi**: for python and ros package management via robostack
-- **direnv** (optional): for automatic environment activation
-
-## getting started
-
-### prerequisites
-
-- nix with flakes enabled
-- git
-
-### installing nix (if not already installed)
-
-personally, i like to use the [experimental nix install script](https://github.com/NixOS/experimental-nix-installer):
-
-```bash
-curl --proto '=https' --tlsv1.2 -sSf -L https://artifacts.nixos.org/experimental-installer | \
-  sh -s -- install
+```powershell
+# Run PowerShell as Administrator
+# Download and run the bootstrap script
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/FlexNetOS/ros2-humble-env/main/bootstrap.ps1" -OutFile "bootstrap.ps1"
+.\bootstrap.ps1
 ```
 
-it installs nix with `flakes` and `nix-command` enabled by default. it also offers an easy-to-use uninstaller in case you decide you don't want it anymore (`/nix/nix-installer uninstall`). alternatively, you can follow the [official nix installation instructions](https://nixos.org/download.html).
-
-### enter the development environment
-
-#### using direnv (recommended)
-
-if you have direnv installed, simply enter the directory:
+### Linux / macOS
 
 ```bash
+# Clone the repository
+git clone https://github.com/FlexNetOS/ros2-humble-env.git
 cd ros2-humble-env
+
+# Run the bootstrap script (installs everything)
+./bootstrap.sh
+
+# Or if you already have nix installed:
+nix develop  # (or: nom develop for nicer output)
 ```
 
-direnv will automatically load the environment. on first run, you may need to:
+## Goal
 
-```bash
+### Bootstrap Environment
+- ✅ A single script run from Windows PowerShell that checks for Linux and WSL2 install, then installs and updates them as needed.
+- ✅ Creates the NixOS Distro, registers it, creates the ext4.vhdx hard disk image 1TB, and swap image.
+- ✅ Loads the nix flake and configurations per direnv
+- ✅ Sets up pixi package manager, tools, and packages
+- ✅ Adds zsh and nushell (bash stays default with nix)
+- ✅ Includes `nom` (nix-output-monitor) for nicer output (optional; `nix` still works)
+- ✅ Installs git and gh cli
+
+### Agentic System
+- 🔄 Agentic system that runs robotics, DevOps, user's personal life and work life
+- ✅ Modular and Portable - Configuration modules can be imported into any Nix flake
+- ✅ Built for Cross-platform Use - Linux, macOS, and Windows (WSL2) support
+- ✅ Clear Configs and Schema - Documented options with types and defaults
+
+### Documentation
+- ✅ [AGENT.md](.claude/AGENT.md) - Agent system architecture and capabilities
+- ✅ [CLAUDE.md](.claude/CLAUDE.md) - Claude Code specific instructions
+- ✅ [RULES.md](.claude/RULES.md) - Rules and contribution guidelines
+- ✅ [SKILL.md](.claude/SKILL.md) - Available skills and tool reference
+- ✅ [INDEX.md](.claude/INDEX.md) - Documentation navigation
+
+## Overview
+
+This repository provides a complete development setup for ROS2 Humble with all necessary build tools and dependencies pre-configured. The environment works on:
+
+- **Windows** (via WSL2 + NixOS)
+- **Linux** (native, x86_64 and aarch64)
+- **macOS** (x86_64 and arm64)
+
+Using:
+- **Nix flakes**: for reproducible, declarative environment setup
+- **pixi**: for Python and ROS package management via RoboStack
+- **direnv**: for automatic environment activation
+- **home-manager modules**: for comprehensive shell and editor configuration
+
+## Getting Started
+
+### Windows Installation (Recommended for Windows users)
+
+The PowerShell bootstrap script (`bootstrap.ps1`) automates the entire setup:
+
+```powershell
+# Option 1: Run directly (requires Administrator)
+Set-ExecutionPolicy Bypass -Scope Process -Force
+.\bootstrap.ps1
+
+# Option 2: With custom options
+.\bootstrap.ps1 -DistroName "MyROS2" -DiskSizeGB 512 -SwapSizeGB 16
+```
+
+**What it does:**
+1. Checks Windows version (requires build 19041+)
+2. Enables WSL2 and Virtual Machine Platform
+3. Downloads and imports NixOS-WSL distribution
+4. Creates 1TB ext4.vhdx virtual disk
+5. Configures swap (default 8GB)
+6. Runs the Linux bootstrap script inside WSL
+7. Sets up the complete ROS2 environment
+
+**Parameters:**
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `-DistroName` | NixOS-ROS2 | Name for the WSL distribution |
+| `-InstallPath` | `$HOME\WSL\NixOS-ROS2` | Installation directory |
+| `-DiskSizeGB` | 1024 | Virtual disk size (1TB) |
+| `-SwapSizeGB` | 8 | Swap size in GB |
+| `-SkipWSLCheck` | false | Skip WSL installation check |
+| `-Force` | false | Replace existing distro |
+
+**After installation:**
+```powershell
+# Enter the environment
+wsl -d NixOS-ROS2
+cd ~/ros2-humble-env
 direnv allow
+
+# If you prefer manual activation (direnv optional):
+nix develop  # (or: nom develop for nicer output)
 ```
 
-#### using nix develop
-
-alternatively, activate the environment manually:
+### Linux / macOS Installation
 
 ```bash
+./bootstrap.sh
+```
+
+This script will:
+1. Install Nix with flakes enabled (using Determinate Systems installer)
+2. Install direnv, nom, git, gh cli
+3. Optionally install zsh and nushell
+4. Verify the flake and pixi setup
+
+For CI environments:
+```bash
+./bootstrap.sh --ci --skip-shells
+```
+
+### Manual Installation
+
+If you prefer to install manually:
+
+```bash
+# Install nix (experimental installer with flakes)
+curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
+
+# Enter the development environment
 nix develop
-```
 
-or with `nom` for better build output:
-
-```bash
+# Optional (nicer output):
 nom develop
 ```
 
-## adding packages
+### Using direnv
 
-the environment uses robostack to provide ros2 humble packages. to add a package:
-
-```bash
-pixi add <PACKAGE_NAME>
-```
-
-find available ros2-humble packages in the [robostack channel](https://robostack.github.io/humble.html).
-
-## using a different shell
-
-nix shells default to bash, but you can use your preferred shell. if you want to use a different shell (like zsh, fish, or nushell), you have a few options:
-
-### manual approach
+If you have direnv installed, simply enter the directory:
 
 ```bash
-nix develop -c env 'SHELL=<your-shell-path-here>' <your-shell-path-here>
+cd ros2-humble-env
+direnv allow
 ```
 
-for example, with nushell:
+direnv will automatically load the environment.
+
+## Workspace Structure
+
+```
+ros2-humble-env/
+├── flake.nix              # Main nix flake configuration
+├── flake.lock             # Locked dependency versions
+├── pixi.toml              # Pixi workspace definition
+├── pixi.lock              # Pixi locked dependencies
+├── bootstrap.sh           # Linux/macOS bootstrap script
+├── bootstrap.ps1          # Windows PowerShell bootstrap script
+├── docker-compose.agixt.yml  # AGiXT Docker services
+├── .envrc                 # Direnv configuration
+├── .env.agixt.example     # AGiXT environment template
+├── BUILDKIT_STARTER_SPEC.md  # Stack specification (SSoT)
+├── .github/
+│   └── workflows/
+│       └── bootstrap-test.yml  # CI workflow
+├── .claude/               # Agent configuration
+│   ├── AGENT.md           # Agent system architecture
+│   ├── CLAUDE.md          # Claude Code instructions
+│   ├── RULES.md           # Rules and guidelines
+│   ├── SKILL.md           # Skills reference
+│   ├── INDEX.md           # Documentation navigation
+│   ├── settings.json      # Permissions and hooks
+│   ├── agents/            # Agent role definitions
+│   ├── skills/            # Structured skill definitions
+│   └── commands/          # Slash commands
+├── rust/                  # Rust workspace
+│   ├── Cargo.toml         # Workspace configuration
+│   └── agixt-bridge/      # AGiXT Rust SDK bridge
+├── docs/
+│   └── adr/               # Architecture Decision Records
+│       ├── README.md
+│       └── adr-001..006   # ADR documents
+├── lib/
+│   ├── default.nix        # Library utilities
+│   └── system.nix         # System builder helpers
+└── modules/
+    ├── common/            # Cross-platform configurations
+    │   ├── default.nix    # Module aggregator
+    │   ├── direnv.nix     # Enhanced direnv config
+    │   ├── git.nix        # Git configuration
+    │   ├── packages.nix   # Common packages
+    │   ├── xdg.nix        # XDG Base Directory support
+    │   ├── ai/            # AI assistants
+    │   │   ├── default.nix
+    │   │   ├── aichat.nix # Provider-agnostic chat
+    │   │   └── aider.nix  # AI pair programming
+    │   ├── nix/           # Nix settings
+    │   ├── editor/        # Editors with LSPs
+    │   │   ├── default.nix
+    │   │   └── neovim.nix # Neovim configuration
+    │   └── shell/         # Shell configurations
+    │       ├── default.nix
+    │       ├── nushell.nix
+    │       ├── zsh.nix
+    │       ├── bash.nix
+    │       ├── zoxide.nix
+    │       └── starship.nix
+    ├── linux/             # Linux-specific configurations
+    │   ├── default.nix
+    │   ├── packages.nix
+    │   ├── docker.nix
+    │   ├── udev.nix       # Device rules for robotics
+    │   ├── users.nix
+    │   └── systemd.nix
+    └── macos/             # macOS-specific configurations
+        ├── default.nix
+        ├── packages.nix
+        ├── homebrew.nix
+        ├── system.nix
+        └── shell.nix
+```
+
+## Environment Details
+
+The workspace includes:
+
+### Core Tools
+- **ROS**: ros-humble-desktop with all core ROS packages
+- **Build tools**: cmake, ninja, make, compilers, pkg-config
+- **ROS tools**: colcon, rosdep, catkin_tools
+- **Python**: 3.11.x with development headers
+
+### Development Environment
+- **Shells**: bash, zsh, nushell (with starship prompt)
+- **Editor**: helix with LSPs for Python, C++, CMake, Nix, YAML, XML
+- **AI Assistants**: aichat (lightweight chat), aider (git-integrated pair programming)
+- **Navigation**: zoxide (smart cd), fzf (fuzzy finder)
+- **Utilities**: bat, eza, ripgrep, fd, jq, yq
+
+### Platforms
+- Windows (WSL2), linux-64, linux-aarch64, osx-64, osx-arm64
+
+## Quick Commands
+
+Once in the development environment:
 
 ```bash
-nix develop -c env 'SHELL=/bin/nu' /bin/nu
+# Build ROS packages
+cb                          # colcon build --symlink-install
+colcon build
+
+# Test packages
+ct                          # colcon test
+ctr                         # colcon test-result --verbose
+
+# Package management
+pixi add <PACKAGE_NAME>     # Add a robostack package
+pixi search ros-humble-*    # Search for ROS2 packages
+
+# Environment info
+ros2-env                    # Show ROS2 environment variables
+
+# Update dependencies
+update-deps                 # pixi update
+
+# AI assistance
+ai "explain ROS2 topics"    # Ask AI anything
+ai-code "write a publisher" # Generate code
+ai-review                   # Review code (pipe input)
+
+# AI pair programming (aider)
+pair                        # Start AI pair programming
+pair src/my_node.py         # Work on specific files
+pair-voice                  # Voice-to-code mode
+
+# Local AI inference (requires devshell.full)
+localai start               # Start LocalAI server
+localai status              # Check server status
+localai models              # List available models
+
+# AGiXT agent platform (requires Docker)
+agixt up                    # Start AGiXT services
+agixt status                # Check service status
+agixt logs                  # View logs
+
+# LLM evaluation
+promptfoo eval              # Run prompt tests
+
+# Development tools
+vault-dev                   # Start Vault in dev mode
 ```
 
-### create an alias
+## Using Different Shells
 
-add this alias to your shell configuration for easier access:
+The development environment supports multiple shells:
 
-```bash
-alias devshell="nix develop -c env 'SHELL=/bin/bash' /bin/bash"
-```
-
-### nushell function
-
-if you use nushell, create this function in your `env.nu`:
-
-```nu
-def devshell [] {
-  let shell_path = "/bin/nu"
-  nix develop -c env $'SHELL=($shell_path)' $shell_path
-}
-```
-
-then simply run `devshell` to enter the environment with nushell.
-
-## bash function
-
-you can also create a bash function for easier access. add this to your `.bashrc` or `.bash_profile`:
-
-```bash
-devshell() {
-  local shell_path="/bin/bash"  # change this to your preferred shell path
-  nix develop -c env "SHELL=$shell_path" "$shell_path"
-}
-```
-
-this should do the same as the nushell function defined above but for bash users.
-
-### with nom
-
-if you use nom for better nix output, replace `nix` with `nom`:
-
+### Nushell (Recommended)
 ```bash
 nom develop -c env 'SHELL=/bin/nu' /bin/nu
 ```
 
-## environment details
-
-the workspace includes:
-
-- **ros**: ros-humble-desktop with all core ros packages
-- **build tools**: cmake, ninja, make, compilers, pkg-config
-- **ros tools**: colcon, rosdep, catkin_tools
-- **python**: 3.11.x with development headers
-- **platforms**: supports linux-64, linux-aarch64, osx-64, osx-arm64
-
-## workspace structure
-
-```
-ros2-humble-env/
-├── flake.nix          # nix flake configuration
-├── pixi.toml          # pixi workspace definition
-├── pixi.lock          # locked dependency versions
-└── README.md          # this file
-```
-
-## useful commands
-
-once in the development environment, sourcing ros is not needed as that is all handled by pixi automatically.
-
+### Zsh
 ```bash
-# build ros packages with colcon
-colcon build
+nom develop -c env 'SHELL=/bin/zsh' /bin/zsh
+```
 
-# list all available ros humble robostack packages
-pixi search ros-humble-*
+### Create an alias
+Add to your shell config:
+```bash
+alias devshell="nom develop -c env 'SHELL=/bin/bash' /bin/bash"
+```
 
-# search for a specific ros2 package, like all packages containing "rosidl" in the name
-pixi search *rosidl*
+## Using Modules in Other Flakes
 
-# add a new package
+The modules can be imported into other flakes:
+
+```nix
+{
+  inputs = {
+    ros2-humble-env.url = "github:FlexNetOS/ros2-humble-env";
+    home-manager.url = "github:nix-community/home-manager";
+  };
+
+  outputs = { self, ros2-humble-env, home-manager, ... }: {
+    homeConfigurations.myuser = home-manager.lib.homeManagerConfiguration {
+      modules = [
+        ros2-humble-env.lib.homeManagerModules.default
+        # Your other modules...
+      ];
+    };
+  };
+}
+```
+
+## Adding Packages
+
+### ROS2 Packages (via pixi)
+```bash
 pixi add ros-humble-<package-name>
 ```
 
-it's worth noting that it's also recommended to add python packages to pixi's env as well. let's say you need `pygame`, for example, then you'd add it by doing `pixi add pygame` (which would alter the `pixi.toml` and `pixi.lock` files).
+Find available packages at [robostack channel](https://robostack.github.io/humble.html).
 
-## links
+### Python Packages (via pixi)
+```bash
+pixi add pygame
+```
 
-- [robostack ros2-humble packages](https://robostack.github.io/humble.html)
-- [pixi documentation](https://pixi.sh)
-- [nix flakes documentation](https://nixos.wiki/wiki/Flakes)
-- [ros2 humble documentation](https://docs.ros.org/en/humble/)
-- [flake-parts devshell documentation](https://flake.parts/options/devshell.html)
+### Nix Packages
+Add to `flake.nix` in the `commonPackages` list.
 
-## license
+## Troubleshooting
 
-this project is licensed under the [MIT License](LICENSE). see the LICENSE file for details.
+### Windows/WSL2
+
+**WSL2 not available:**
+- Ensure Windows 10 version 2004+ or Windows 11
+- Run `wsl --install` manually if needed
+- Restart after enabling WSL features
+
+**Disk space issues:**
+- The default 1TB vhdx is sparse (only uses actual data size)
+- Reduce with `-DiskSizeGB 256` if needed
+
+**Performance tips:**
+- Store projects inside WSL filesystem (`/home/user/`)
+- Avoid accessing Windows drives (`/mnt/c/`) for builds
+
+### Linux/macOS
+
+**Nix installation issues:**
+- Check https://github.com/DeterminateSystems/nix-installer
+- Ensure curl and bash are available
+
+**Flake errors:**
+- Run `nix flake update` to refresh dependencies
+- Check `nix flake check` for validation
+
+## Links
+
+### ROS2 & Robotics
+- [ROS2 Humble documentation](https://docs.ros.org/en/humble/)
+- [ROS2 Tutorials](https://docs.ros.org/en/humble/Tutorials.html)
+- [RoboStack ROS2-humble packages](https://robostack.github.io/humble.html)
+- [ROS2 Design Documentation](https://design.ros2.org/)
+- [ROS2 Packages Index](https://index.ros.org/packages/)
+
+### Pixi & Package Management
+- [Pixi documentation](https://pixi.sh)
+- [Pixi Getting Started](https://pixi.sh/latest/getting_started/)
+- [RoboStack GitHub](https://github.com/RoboStack/ros-humble)
+- [Conda-forge](https://conda-forge.org/)
+
+### Nix Ecosystem
+- [Nix Manual](https://nixos.org/manual/nix/stable/)
+- [Nix flakes documentation](https://nixos.wiki/wiki/Flakes)
+- [NixOS Wiki](https://wiki.nixos.org/)
+- [Nix Pills (learning resource)](https://nixos.org/guides/nix-pills/)
+- [Zero to Nix](https://zero-to-nix.com/)
+- [Determinate Systems Nix Installer](https://github.com/DeterminateSystems/nix-installer)
+- [devenv.sh](https://devenv.sh/)
+- [Flake-parts documentation](https://flake.parts/)
+- [numtide devshell](https://github.com/numtide/devshell)
+
+### Home Manager
+- [Home-manager documentation](https://nix-community.github.io/home-manager/)
+- [Home-manager Options Search](https://home-manager-options.extranix.com/)
+- [Home-manager GitHub](https://github.com/nix-community/home-manager)
+
+### Windows / WSL2
+- [NixOS-WSL](https://github.com/nix-community/NixOS-WSL)
+- [WSL Documentation](https://learn.microsoft.com/en-us/windows/wsl/)
+- [WSL Best Practices](https://learn.microsoft.com/en-us/windows/wsl/setup/environment)
+- [WSL2 Networking](https://learn.microsoft.com/en-us/windows/wsl/networking)
+
+### Shells & Terminal
+- [Starship Prompt](https://starship.rs/)
+- [Nushell Documentation](https://www.nushell.sh/book/)
+- [Zsh Documentation](https://zsh.sourceforge.io/Doc/)
+- [direnv Documentation](https://direnv.net/)
+- [nix-direnv](https://github.com/nix-community/nix-direnv)
+
+### Editor
+- [Helix Editor](https://helix-editor.com/)
+- [Helix Documentation](https://docs.helix-editor.com/)
+- [Helix Language Support](https://docs.helix-editor.com/lang-support.html)
+
+## Configuration Sources
+
+This configuration incorporates patterns and modules from:
+- [GustavoWidman/nix](https://github.com/GustavoWidman/nix) - Multi-machine Nix configuration
+- [RGBCube/ncc](https://github.com/RGBCube/ncc) - Comprehensive NixOS/Darwin configuration
+
+## Agentic Infrastructure Resources
+
+### Integrated Tools
+
+The following tools are **integrated and available** in this environment:
+
+| Tool | Description | Command/Usage |
+|------|-------------|---------------|
+| **LocalAI** | OpenAI-compatible local inference | `localai start` |
+| **AGiXT** | AI Agent Automation Platform (Docker) | `agixt up` |
+| **AGiXT Rust SDK** | Rust SDK for AGiXT | `rust/agixt-bridge/` |
+| **Prometheus** | Metrics and monitoring | In flake.nix |
+| **NATS** | Event bus messaging | `natscli`, `nats-server` |
+| **Trivy** | Security vulnerability scanning | `trivy` |
+| **OPA** | Policy-as-code decisions | `opa` |
+| **Vault** | Secrets management | `vault-dev` |
+| **promptfoo** | LLM prompt testing | `promptfoo eval` |
+| **sqlx-cli** | Type-safe SQL migrations | `sqlx` |
+| **maturin** | PyO3/Rust-Python bindings | `maturin` |
+| **AIOS** | AI Agent Operating System (kernel) | `aios start` |
+| **Cerebrum** | Agent SDK for AIOS | `pixi run -e aios ...` |
+
+### Evaluated / Planned
+
+The following resources are documented but require additional setup:
+
+| Project | Description | URL |
+|---------|-------------|-----|
+| **Temporal** | Durable workflows | [temporalio/temporal](https://github.com/temporalio/temporal) |
+| **OpenTelemetry** | Observability framework | [open-telemetry](https://github.com/open-telemetry) |
+
+### Training & Machine Learning
+
+| Project | Description | URL |
+|---------|-------------|-----|
+| **unsloth** | Fast LLM fine-tuning | [unslothai/unsloth](https://github.com/unslothai/unsloth) |
+| **ComfyUI** | Modular stable diffusion GUI | [comfyanonymous/ComfyUI](https://github.com/comfyanonymous/ComfyUI) |
+
+### Memory & Context Systems
+
+| Project | Description | URL |
+|---------|-------------|-----|
+| **memobase** | User Profile-Based Long-Term Memory | [memodb-io/memobase](https://github.com/memodb-io/memobase) |
+| **Memori** | SQL Native Memory Layer | [MemoriLabs/Memori](https://github.com/MemoriLabs/Memori) |
+
+### Gateways & API Management
+
+| Project | Description | URL |
+|---------|-------------|-----|
+| **agentgateway** | AI Agent Gateway | [agentgateway/agentgateway](https://github.com/agentgateway/agentgateway) |
+| **Kong** | Cloud-Native API Gateway | [Kong/kong](https://github.com/Kong/kong) |
+
+### Distributed Systems & Networking
+
+| Project | Description | URL |
+|---------|-------------|-----|
+| **rust-libp2p** | Rust libp2p networking stack | [libp2p/rust-libp2p](https://github.com/libp2p/rust-libp2p) |
+| **holochain** | Distributed User Resources | [holochain/holochain](https://github.com/holochain/holochain) |
+| **noa-dynamo** | Org Datacenter Scale Distributed Inference | [FlexNetOS/dynamo](https://github.com/FlexNetOS/dynamo/tree/noa-dynamo) |
+| **temporal** | Workflow orchestration platform | [temporalio/temporal](https://github.com/temporalio/temporal) |
+| **NATS** | Cloud native messaging system | [nats-io/nats-server](https://github.com/nats-io/nats-server) |
+| **Kubo** | IPFS implementation in Go | [ipfs/kubo](https://github.com/ipfs/kubo) |
+
+### Databases & Storage
+
+| Project | Description | URL |
+|---------|-------------|-----|
+| **sqlx** | Rust SQL Toolkit | [launchbadge/sqlx](https://github.com/launchbadge/sqlx) |
+| **neon** | Serverless Postgres | [neondatabase/neon](https://github.com/neondatabase/neon) |
+| **vCache** | Distributed caching | [vcache-project/vCache](https://github.com/vcache-project/vCache) |
+
+### Monitoring & Observability
+
+| Project | Description | URL |
+|---------|-------------|-----|
+| **netdata** | Real-time infrastructure monitoring | [netdata/netdata](https://github.com/netdata/netdata) |
+| **umami** | Privacy-focused web analytics | [umami-software/umami](https://github.com/umami-software/umami) |
+| **prometheus** | Monitoring and alerting toolkit | [prometheus/prometheus](https://github.com/prometheus/prometheus) |
+| **OpenTelemetry** | Observability framework | [open-telemetry](https://github.com/open-telemetry) |
+| **trippy** | Network diagnostic tool | [fujiapple852/trippy](https://github.com/fujiapple852/trippy) |
+
+### Security & Secrets Management
+
+| Project | Description | URL |
+|---------|-------------|-----|
+| **trivy** | Security vulnerability scanner | [aquasecurity/trivy](https://github.com/aquasecurity/trivy) |
+| **vault** | Secrets management | [hashicorp/vault](https://github.com/hashicorp/vault) |
+| **vaultwarden** | Bitwarden-compatible server | [dani-garcia/vaultwarden](https://github.com/dani-garcia/vaultwarden) |
+| **keycloak** | Identity and access management | [keycloak/keycloak](https://github.com/keycloak/keycloak) |
+| **OPA** | Open Policy Agent | [open-policy-agent/opa](https://github.com/open-policy-agent/opa) |
+| **gvisor** | Container sandbox runtime | [githubfoam/gvisor-sandbox](https://github.com/githubfoam/gvisor-sandbox) |
+
+### DevOps & CI/CD
+
+| Project | Description | URL |
+|---------|-------------|-----|
+| **Argo CD** | GitOps continuous delivery | [FlexNetOS/argo-cd](https://github.com/FlexNetOS/argo-cd) |
+| **AppFlowy-Cloud** | Self-hosted Notion alternative backend | [AppFlowy-IO/AppFlowy-Cloud](https://github.com/AppFlowy-IO/AppFlowy-Cloud) |
+| **chirpstack** | LoRaWAN Network Server | [chirpstack/chirpstack](https://github.com/chirpstack/chirpstack) |
+
+### Rust Development Tools
+
+| Project | Description | URL |
+|---------|-------------|-----|
+| **RustCoder** | Rust MCP coding assistant | [cardea-mcp/RustCoder](https://github.com/cardea-mcp/RustCoder) |
+| **rusty-tags** | Ctags generator for Rust | [dan-t/rusty-tags](https://github.com/dan-t/rusty-tags) |
+| **syn** | Rust syntax parsing library | [dtolnay/syn](https://github.com/dtolnay/syn) |
+| **coreutils** | Rust implementation of GNU coreutils | [uutils/coreutils](https://github.com/uutils/coreutils) |
+| **swc** | Rust-based JS/TS compiler | [swc-project/swc](https://github.com/swc-project/swc) |
+| **kellnr** | Private Rust crate registry | [kellnr/kellnr](https://github.com/kellnr/kellnr) |
+
+### AI Evaluation & Testing
+
+| Project | Description | URL |
+|---------|-------------|-----|
+| **promptfoo** | LLM prompt testing framework | [promptfoo/promptfoo](https://github.com/promptfoo/promptfoo) |
+| **evals** | OpenAI evaluation framework | [openai/evals](https://github.com/openai/evals) |
+| **trulens** | LLM app evaluation & tracking | [truera/trulens](https://github.com/truera/trulens) |
+
+### Robotics & Vision
+
+| Project | Description | URL |
+|---------|-------------|-----|
+| **Josh-XT** | Vision-Driven Autonomous Robot Control | [Josh-XT](https://github.com/Josh-XT) |
+| **jj** | Git-compatible VCS | [jj-vcs/jj](https://github.com/jj-vcs/jj) |
+
+### Additional Resources
+
+| Project | Description | URL |
+|---------|-------------|-----|
+| **daa** | Distributed agent architecture | [ruvnet/daa](https://github.com/ruvnet/daa) |
+| **ruvector** | Vector operations library | [ruvnet/ruvector](https://github.com/ruvnet/ruvector) |
+| **qudag** | Quantum DAG implementation | [ruvnet/qudag](https://github.com/ruvnet/qudag) |
+| **API-mega-list** | Comprehensive API resource list | [cporter202/API-mega-list](https://github.com/cporter202/API-mega-list) |
+| **zcf** | Configuration framework | [UfoMiao/zcf](https://github.com/UfoMiao/zcf) |
+
+### Python/Rust Interop (for pixi)
+
+| Project | Description | URL |
+|---------|-------------|-----|
+| **RustPython** | Python interpreter in Rust | [RustPython/RustPython](https://github.com/RustPython/RustPython) |
+| **PyO3** | Rust bindings for Python | [PyO3/pyo3](https://github.com/PyO3/pyo3) |
+
+## License
+
+This project is licensed under the [MIT License](LICENSE). See the LICENSE file for details.
