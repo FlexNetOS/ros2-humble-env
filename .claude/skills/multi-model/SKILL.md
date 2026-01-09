@@ -179,27 +179,53 @@ consensus = check_consensus(responses, threshold=0.66)
 
 ### 1. Copy API Key Template
 ```bash
-cp .claude/config/env.template ~/.config/claude-code/env
+# Option A: Project-local (gitignored)
+cp .claude/config/env.template .claude/config/env
+
+# Option B: User-global
+cp .claude/config/env.template ~/.claude/env
+
 # Edit with your actual API keys
 ```
 
 ### 2. Source Environment
 ```bash
 # Add to ~/.bashrc or ~/.zshrc
-if [ -f ~/.config/claude-code/env ]; then
+ENV_FILE="${HOME}/.claude/env"
+[ -f ".claude/config/env" ] && ENV_FILE=".claude/config/env"
+
+if [ -f "$ENV_FILE" ]; then
   set -a
-  source ~/.config/claude-code/env
+  source "$ENV_FILE"
   set +a
 fi
 ```
 
-### 3. Verify Configuration
+### 3. Use Kimi K2 as Claude Replacement (Optional)
+```bash
+# Add to env file to use Kimi K2 instead of Claude:
+export ANTHROPIC_BASE_URL=https://api.moonshot.ai/anthropic
+export ANTHROPIC_AUTH_TOKEN=${MOONSHOT_API_KEY}
+export ANTHROPIC_MODEL=kimi-k2-thinking-turbo
+export ANTHROPIC_DEFAULT_OPUS_MODEL=kimi-k2-thinking-turbo
+export ANTHROPIC_DEFAULT_SONNET_MODEL=kimi-k2-thinking-turbo
+export ANTHROPIC_DEFAULT_HAIKU_MODEL=kimi-k2-thinking-turbo
+export CLAUDE_CODE_SUBAGENT_MODEL=kimi-k2-thinking-turbo
+
+# Then run Claude Code normally - it will use Kimi K2!
+claude
+```
+
+### 4. Verify Configuration
 ```bash
 # Check Claude
 echo "Claude: ${ANTHROPIC_API_KEY:0:10}..."
 
 # Check OpenAI
 echo "OpenAI: ${OPENAI_API_KEY:0:10}..."
+
+# Check Moonshot
+echo "Moonshot: ${MOONSHOT_API_KEY:0:10}..."
 
 # Check local models
 ollama list
