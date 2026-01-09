@@ -256,6 +256,51 @@ Task(subagent_type="general-purpose", model="sonnet",
      description="Consistency analysis")
 ```
 
+### Step 0.5: Directory Tree Map & Clutter Detection (FIRST OUTPUT)
+
+> **CRITICAL**: Generate the Architecture Directory Tree Map BEFORE any other work.
+
+```bash
+# Generate tree structure
+tree -L 3 -I 'node_modules|.git|.pixi|__pycache__|*.lock' > docs/reports/directory-tree.txt
+
+# Detect root clutter - files that shouldn't be at root
+echo "=== ROOT CLUTTER DETECTION ==="
+ls *.md 2>/dev/null | grep -vE '^(README|CONTRIBUTING|SECURITY|LICENSE)' || echo "No extra .md at root"
+ls *.html 2>/dev/null || echo "No .html at root"
+ls *.sh 2>/dev/null | grep -vE '^bootstrap' || echo "No extra .sh at root"
+find . -maxdepth 1 -name 'docker-compose*.yml' -type f || echo "No docker-compose files at root (good)"
+
+# Verify symlinks
+echo "=== SYMLINK VERIFICATION ==="
+find . -maxdepth 1 -type l -name 'docker-compose*' -exec sh -c 'echo "{} -> $(readlink {})"' \;
+```
+
+**Clutter Remediation Script**:
+```bash
+#!/bin/bash
+# Move misplaced files to correct locations
+
+# Move SPEC/REPORT/IMPLEMENTATION docs
+mv *_SPEC.md docs/ 2>/dev/null
+mv *_REPORT.md docs/reports/ 2>/dev/null
+mv *_IMPLEMENTATION.md docs/implementation/ 2>/dev/null
+
+# Move HTML files
+mv *.html docs/ 2>/dev/null
+
+# Move verification scripts
+mv VERIFICATION-*.sh scripts/ 2>/dev/null
+
+# Move docker-compose files (if not already symlinks)
+for f in docker-compose.*.yml; do
+  if [ -f "$f" ] && [ ! -L "$f" ]; then
+    mv "$f" docker/
+    ln -sf "docker/$f" "$f"
+  fi
+done
+```
+
 ---
 
 ## Phase 1: Discovery & Census
@@ -602,6 +647,118 @@ ci_workflow_checks:
 
 <output_format>
 ## Required Deliverables
+
+### 0. Architecture Directory Tree Map (FIRST PRIORITY)
+
+> **Critical**: Generate this FIRST to prevent workspace clutter chaos.
+> This map ensures proper organization before any changes are made.
+
+```markdown
+## Architecture Directory Tree Map
+
+**Generated**: YYYY-MM-DD HH:MM
+**Root**: /path/to/workspace
+
+### Directory Organization Rules
+
+| Location | Purpose | Allowed Contents |
+|----------|---------|------------------|
+| `/` (root) | Core config only | flake.nix, pixi.toml, bootstrap.*, README.md, LICENSE |
+| `/docs/` | All documentation | *.md specs, guides, ADRs |
+| `/docs/reports/` | Generated reports | Audit reports, analysis outputs |
+| `/docs/implementation/` | Implementation plans | Phase plans, migration guides |
+| `/docker/` | Docker configs | docker-compose.*.yml |
+| `/.claude/` | Agent system | agents/, skills/, prompts/, policies/ |
+| `/config/` | App configs | YAML, JSON, TOML configs |
+| `/modules/` | Nix modules | *.nix files |
+| `/manifests/` | K8s manifests | Helm, Kustomize |
+| `/scripts/` | Utility scripts | *.sh, *.ps1 |
+| `/rust/` | Rust code | Cargo.toml, src/ |
+| `/test/` | Test suites | Unit, integration tests |
+
+### Current Tree Structure
+
+\`\`\`
+ros2-humble-env/
+├── .claude/                    # 🤖 Agent System
+│   ├── agents/                 # Agent definitions (14 total)
+│   │   ├── coordinator.md
+│   │   ├── config-consistency-agent.md  # Kimi K2
+│   │   └── ...
+│   ├── skills/                 # Skill modules (17 total)
+│   ├── prompts/                # System prompts
+│   ├── policies/               # OPA/Rego policies
+│   ├── config/                 # Multi-model config
+│   │   ├── models.json
+│   │   ├── env.template
+│   │   └── claude-code-router.template.json
+│   └── commands/               # Slash commands
+│
+├── docs/                       # 📚 Documentation
+│   ├── BUILDKIT_STARTER_SPEC.md  # SSoT
+│   ├── implementation/         # Phase plans
+│   ├── reports/                # Audit reports
+│   ├── adr/                    # Architecture decisions
+│   └── *.md                    # Guides & specs
+│
+├── docker/                     # 🐳 Docker Configs (actual files)
+│   ├── docker-compose.agixt.yml
+│   ├── docker-compose.identity.yml
+│   └── ...
+│
+├── docker-compose.*.yml        # 🔗 Symlinks → docker/
+│
+├── config/                     # ⚙️ Application Configs
+│   ├── keycloak/
+│   ├── vault/
+│   └── ...
+│
+├── modules/                    # ❄️ Nix Modules
+│   ├── common/
+│   ├── linux/
+│   └── macos/
+│
+├── manifests/                  # ☸️ Kubernetes
+│   ├── argocd/
+│   ├── monitoring/
+│   └── ...
+│
+├── rust/                       # 🦀 Rust Code
+│   ├── Cargo.toml
+│   └── src/
+│
+├── scripts/                    # 📜 Utility Scripts
+│
+├── test/                       # 🧪 Tests
+│
+├── flake.nix                   # Nix flake (root)
+├── pixi.toml                   # Pixi config (root)
+├── bootstrap.sh                # Setup script (root)
+├── README.md                   # Project README (root)
+└── LICENSE                     # License (root)
+\`\`\`
+
+### Clutter Detection
+
+Files that should NOT be at root:
+
+| File Pattern | Correct Location | Action |
+|--------------|------------------|--------|
+| `*_SPEC.md` | `docs/` | Move |
+| `*_REPORT.md` | `docs/reports/` | Move |
+| `*_IMPLEMENTATION.md` | `docs/implementation/` | Move |
+| `docker-compose.*.yml` (files) | `docker/` | Move + symlink |
+| `*.html` (generated) | `docs/` | Move |
+| `VERIFICATION-*.sh` | `scripts/` | Move |
+
+### Symlink Verification
+
+| Symlink | Target | Status |
+|---------|--------|--------|
+| `docker-compose.agixt.yml` | `docker/docker-compose.agixt.yml` | ✅ Valid |
+| `docker-compose.identity.yml` | `docker/docker-compose.identity.yml` | ✅ Valid |
+| ... | ... | ... |
+```
 
 ### 1. Repository Census
 
