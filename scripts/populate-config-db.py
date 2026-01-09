@@ -75,7 +75,7 @@ def parse_flake_inputs(conn):
         log_success(f"  Found input: {name} -> {url}")
 
     # Parse block inputs with follows
-    block_pattern = r'(\w[\w-]*?)\s*=\s*\{[^}]*url\s*=\s*"([^"]+)"[^}]*(?:inputs\.(\w+)\.follows)?[^}]*\}'
+    block_pattern = r'(\w[\w-]*?)\s*=\s*\{[^}]*?url\s*=\s*"([^"]+)"[^}]*?(?:inputs\.(\w+)\.follows)?[^}]*?\}'
     for match in re.finditer(block_pattern, content, re.DOTALL):
         name, url = match.group(1), match.group(2)
         follows = match.group(3) if match.group(3) else None
