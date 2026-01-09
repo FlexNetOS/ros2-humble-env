@@ -184,7 +184,7 @@ verbose = true
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/ikamensh/flynt
-    rev: '1.0.1'
+    rev: '1.0.0'
     hooks:
       - id: flynt
 ```
