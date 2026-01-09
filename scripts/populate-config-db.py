@@ -179,12 +179,18 @@ def parse_workflows(conn):
                     continue
 
                 # Get runs-on
-                job_section = re.search(rf'^  {job_name}:.*?(?=^  \w|\Z)', content, re.MULTILINE | re.DOTALL)
+                job_start = job_match.start()
+                search_region = jobs_text[job_match.end():]
+                next_header_match = re.search(r'^  (\w[\w-]*):\s*\n', search_region, re.MULTILINE)
+                if next_header_match:
+                    job_end = job_match.end() + next_header_match.start()
+                else:
+                    job_end = len(jobs_text)
+                job_section_text = jobs_text[job_start:job_end]
                 runs_on = ""
-                if job_section:
-                    runs_on_match = re.search(r'runs-on:\s*([^\n]+)', job_section.group())
-                    if runs_on_match:
-                        runs_on = runs_on_match.group(1).strip().strip('"\'')
+                runs_on_match = re.search(r'runs-on:\s*([^\n]+)', job_section_text)
+                if runs_on_match:
+                    runs_on = runs_on_match.group(1).strip().strip('"\'')
 
                 conn.execute(
                     "INSERT OR IGNORE INTO workflow_jobs (workflow_id, name, runs_on) VALUES (?, ?, ?)",
