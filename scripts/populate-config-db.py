@@ -279,19 +279,6 @@ def run_validation(conn):
     flake_file = REPO_ROOT / "flake.nix"
     content = flake_file.read_text()
 
-    # Check for possibly unused inputs
-    cursor = conn.execute("SELECT name FROM flake_inputs WHERE is_active=1")
-    for (input_name,) in cursor.fetchall():
-        ref_count = len(re.findall(re.escape(input_name), content))
-        if ref_count < 3:
-            conn.execute(
-                """INSERT INTO config_issues (source, severity, issue_type, description, file_path)
-                   VALUES (?, ?, ?, ?, ?)""",
-                ('flake', 'warning', 'possibly_unused',
-                 f'Input "{input_name}" may be unused (only {ref_count} references)', 'flake.nix')
-            )
-            log_warn(f"  Possibly unused input: {input_name}")
-
     conn.commit()
     log_success("Validation complete")
 
