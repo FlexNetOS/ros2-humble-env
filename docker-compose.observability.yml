@@ -220,11 +220,76 @@ services:
       - agentic-network
     restart: unless-stopped
 
+  # ---------------------------------------------------------------------------
+  # OpenTelemetry Collector - Unified telemetry pipeline
+  # ---------------------------------------------------------------------------
+  # https://github.com/open-telemetry/opentelemetry-collector-contrib
+  # Receives traces, metrics, logs from applications and exports to backends
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.115.0
+    container_name: otel-collector
+    command: ["--config=/etc/otelcol/config.yaml"]
+    ports:
+      - "4317:4317"   # OTLP gRPC receiver
+      - "4318:4318"   # OTLP HTTP receiver
+      - "8888:8888"   # Prometheus metrics exposed by the collector
+      - "8889:8889"   # Prometheus exporter metrics
+      - "13133:13133" # Health check extension
+    volumes:
+      - ./manifests/observability/otel-collector.yaml:/etc/otelcol/config.yaml:ro
+    networks:
+      - agentic-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:13133/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+      - loki
+
+  # ---------------------------------------------------------------------------
+  # Netdata - Real-time infrastructure monitoring
+  # ---------------------------------------------------------------------------
+  # https://github.com/netdata/netdata
+  # Per-second metrics for system, containers, applications
+  netdata:
+    image: netdata/netdata:v2.1.0
+    container_name: netdata
+    hostname: netdata
+    pid: host
+    network_mode: host
+    cap_add:
+      - SYS_PTRACE
+      - SYS_ADMIN
+    security_opt:
+      - apparmor:unconfined
+    volumes:
+      - netdata-config:/etc/netdata
+      - netdata-lib:/var/lib/netdata
+      - netdata-cache:/var/cache/netdata
+      - /etc/passwd:/host/etc/passwd:ro
+      - /etc/group:/host/etc/group:ro
+      - /etc/localtime:/etc/localtime:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /etc/os-release:/host/etc/os-release:ro
+      - /var/log:/host/var/log:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - NETDATA_CLAIM_TOKEN=
+      - NETDATA_CLAIM_URL=https://app.netdata.cloud
+    restart: unless-stopped
+
 volumes:
   prometheus-data:
   grafana-data:
   alertmanager-data:
   loki-data:
+  netdata-config:
+  netdata-lib:
+  netdata-cache:
 
 networks:
   agentic-network:
