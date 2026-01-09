@@ -84,6 +84,12 @@
             git
             gh
 
+            # Python 3.13 - Latest stable (for non-ROS2 tools)
+            # ROS2 uses Python 3.11 via Pixi/RoboStack (separate environment)
+            python313
+            python313Packages.pip
+            python313Packages.virtualenv
+
             # Nix tools
             nix-output-monitor
             nix-tree
@@ -256,12 +262,14 @@
               echo "🤖 ROS2 Humble Development Environment"
               echo "======================================"
               echo "  Platform: ${if isDarwin then "macOS" else "Linux"} (${system})"
-              echo "  Shell: bash (use 'zsh' or 'nu' for other shells)"
+              echo "  Python (Nix): ${pkgs.python313.version} (for scripts/tools)"
+              echo "  Python (ROS2): 3.11.x via Pixi/RoboStack"
               echo ""
               echo "Quick commands:"
               echo "  cb     - colcon build --symlink-install"
               echo "  ct     - colcon test"
-              echo "  pixi   - package manager"
+              echo "  pixi   - package manager (ROS2 Python env)"
+              echo "  python3.13 - Nix Python for non-ROS tools"
               echo ""
               echo "AI assistants:"
               echo "  ai        - AI chat (aichat, lightweight)"
@@ -271,17 +279,27 @@
             '';
           };
 
+          # CUDA 13.x package set (latest available in nixpkgs)
+          # Falls back to default cudaPackages if 13.1 unavailable
+          cudaPkgs = pkgs.cudaPackages_13_1 or pkgs.cudaPackages_13 or pkgs.cudaPackages;
+
           # CUDA-enabled shell for GPU workloads
           # Usage: nix develop .#cuda
           # Requires: NVIDIA GPU with drivers installed
+          # Binary cache: https://cache.nixos-cuda.org
           devShells.cuda = pkgs.mkShell {
             packages = commonPackages ++ commandWrappers ++ linuxPackages ++ (with pkgs; [
-              # CUDA Toolkit 12.x (13.1 not yet in nixpkgs as of Jan 2025)
-              # Binary cache: https://cuda-maintainers.cachix.org
-              cudaPackages.cudatoolkit
-              cudaPackages.cudnn
-              cudaPackages.cutensor
-              cudaPackages.nccl
+              # CUDA Toolkit 13.x (or latest available)
+              # See docs/CONFLICTS.md for version details
+              cudaPkgs.cudatoolkit
+              cudaPkgs.cudnn
+              cudaPkgs.cutensor
+              cudaPkgs.nccl
+              cudaPkgs.cuda_cudart
+
+              # GCC 13 pinned for CUDA compatibility
+              # CUDA requires specific GCC versions for nvcc
+              gcc13
 
               # GPU monitoring
               nvtopPackages.full
@@ -292,9 +310,15 @@
             VISUAL = "hx";
 
             # CUDA environment variables
-            CUDA_PATH = "${pkgs.cudaPackages.cudatoolkit}";
+            CUDA_PATH = "${cudaPkgs.cudatoolkit}";
+            # Pin compiler for CUDA compatibility
+            CC = "${pkgs.gcc13}/bin/gcc";
+            CXX = "${pkgs.gcc13}/bin/g++";
 
             shellHook = ''
+              # Set up LD_LIBRARY_PATH for CUDA libraries
+              export LD_LIBRARY_PATH="${cudaPkgs.cudatoolkit}/lib:${cudaPkgs.cudnn}/lib:$LD_LIBRARY_PATH"
+
               # Initialize pixi environment with CUDA feature
               if [ -f pixi.toml ]; then
                 eval "$(pixi shell-hook -e cuda 2>/dev/null || pixi shell-hook)"
@@ -318,7 +342,10 @@
                 nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader 2>/dev/null | head -1 | while read line; do
                   echo "  GPU: $line"
                 done
-                echo "  CUDA: ${pkgs.cudaPackages.cudatoolkit.version}"
+                echo "  CUDA: ${cudaPkgs.cudatoolkit.version}"
+                echo "  GCC: $(${pkgs.gcc13}/bin/gcc --version | head -1)"
+                echo "  Python (Nix): ${pkgs.python313.version}"
+                echo "  Python (ROS2): via Pixi 3.11.x"
                 echo ""
                 echo "PyTorch CUDA verification:"
                 echo "  python -c \"import torch; print(torch.cuda.is_available())\""
