@@ -599,6 +599,7 @@ The following resources are documented but require additional setup:
 | **dynamic_widget** | A Backend-Driven UI toolkit, build your dynamic UI with json | [dengyin2000/dynamic_widget](https://github.com/dengyin2000/dynamic_widget) |
 | **openui** | OpenUI let's you describe UI using your imagination, then see it rendered live | [wandb/openui](https://github.com/wandb/openui) |
 | **MobileAgent** | Mobile-Agent: The Powerful GUI Agent Family | [X-PLUG/MobileAgent](https://github.com/X-PLUG/MobileAgent) |
+| **API-mega-list** | Capability Registry (CR) with 10,498 ready-to-use APIs | [cporter202/API-mega-list](https://github.com/cporter202/API-mega-list) |
 
 ## License
 
