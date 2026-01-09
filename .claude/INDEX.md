@@ -40,6 +40,15 @@
 | [Python Ruff](./skills/python-ruff-tool/SKILL.md) | Linting, formatting, and code modernization |
 | [Python Pyupgrade](./skills/python-pyupgrade-tool/SKILL.md) | Python syntax upgrader |
 | [Python Flynt](./skills/python-flynt-tool/SKILL.md) | F-string converter |
+| [Multi-Model](./skills/multi-model/SKILL.md) | Multi-model orchestration (OpenAI, local, cloud) |
+
+### Configuration Files
+
+| File | Purpose |
+|------|---------|
+| [models.json](./config/models.json) | Multi-model registry and routing |
+| [env.template](./config/env.template) | API key template |
+| [mcp-servers.json](./mcp-servers.json) | MCP server configurations |
 
 ### Architecture Decision Records
 
@@ -56,20 +65,31 @@
 
 #### Core Domain Agents
 
-| Agent | Description |
-|-------|-------------|
-| [Coordinator](./agents/coordinator.md) | Multi-agent task routing and orchestration |
-| [Robotics Agent](./agents/robotics-agent.md) | ROS2 development specialist |
-| [DevOps Agent](./agents/devops-agent.md) | CI/CD and infrastructure specialist |
-| [Nix Agent](./agents/nix-agent.md) | Environment configuration specialist |
+| Agent | Model | Description |
+|-------|-------|-------------|
+| [Coordinator](./agents/coordinator.md) | opus | Multi-agent task routing and orchestration |
+| [Robotics Agent](./agents/robotics-agent.md) | sonnet | ROS2 development specialist |
+| [DevOps Agent](./agents/devops-agent.md) | sonnet | CI/CD and infrastructure specialist |
+| [Nix Agent](./agents/nix-agent.md) | sonnet | Environment configuration specialist |
+| [Kubernetes Agent](./agents/kubernetes-agent.md) | sonnet | K8s, Helm, ArgoCD orchestration |
+| [Identity Agent](./agents/identity-agent.md) | sonnet | Keycloak, OPA, Vault integration |
 
 #### Architecture & Analysis Agents
 
-| Agent | Description |
-|-------|-------------|
-| [Architect Agent](./agents/architect-agent.md) | Full-stack architecture and framework design |
-| [Pre-Verify Agent](./agents/pre-verify-agent.md) | Pre-implementation verification and validation |
-| [Cross-Analysis Agent](./agents/cross-analysis-agent.md) | Codebase analysis and pattern discovery |
+| Agent | Model | Description |
+|-------|-------|-------------|
+| [Architect Agent](./agents/architect-agent.md) | opus | Full-stack architecture and framework design |
+| [Pre-Verify Agent](./agents/pre-verify-agent.md) | haiku | Pre-implementation verification and validation |
+| [Cross-Analysis Agent](./agents/cross-analysis-agent.md) | sonnet | Codebase analysis and pattern discovery |
+
+#### Specialized Agents
+
+| Agent | Model | Description |
+|-------|-------|-------------|
+| [Security Agent](./agents/security-agent.md) | sonnet | Vulnerability scanning, SBOM generation |
+| [Migration Agent](./agents/migration-agent.md) | sonnet | Version upgrades, deprecation management |
+| [Test Runner Agent](./agents/test-runner-agent.md) | haiku | Test execution, coverage analysis |
+| [Docs Agent](./agents/docs-agent.md) | haiku | Documentation, changelog generation |
 
 ### Slash Commands
 

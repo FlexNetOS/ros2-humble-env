@@ -54,6 +54,8 @@ Cargo.lock
 
 # Claude Code local settings (user-specific)
 .claude/settings.local.json
+.claude/config/env
+.claude/mcp-servers.local.json
 
 # Temporary files
 *.tmp
