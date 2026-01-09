@@ -61,15 +61,11 @@ channels = ["pytorch", "nvidia", "conda-forge"]
 
 [feature.cuda.dependencies]
 # PyTorch with CUDA from pytorch channel
-pytorch = { version = ">=2.5,<3", channel = "pytorch" }
-torchvision = { version = ">=0.20,<1", channel = "pytorch" }
-torchaudio = { version = ">=2.5,<3", channel = "pytorch" }
-pytorch-cuda = { version = ">=12.4", channel = "pytorch" }
-pytorch-cuda = "12.4"
 # Version coupling: PyTorch 2.5.x requires torchvision 0.20.x, torchaudio 2.5.x
-pytorch = { version = ">=2.5,<2.6", build = "*cuda*" }
-torchvision = { version = ">=0.20,<0.21", build = "*cuda*" }
-torchaudio = { version = ">=2.5,<2.6", build = "*cuda*" }
+pytorch-cuda = { version = "12.4.*", channel = "pytorch" }
+pytorch = { version = ">=2.5,<2.6", channel = "pytorch", build = "*cuda*" }
+torchvision = { version = ">=0.20,<0.21", channel = "pytorch", build = "*cuda*" }
+torchaudio = { version = ">=2.5,<2.6", channel = "pytorch", build = "*cuda*" }
 
 # =============================================================================
 # AIOS Agent OS Feature
