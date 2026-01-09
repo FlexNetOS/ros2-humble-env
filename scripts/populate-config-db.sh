@@ -309,7 +309,7 @@ run_validation() {
     sqlite3 "$DB_PATH" "
         SELECT w.name FROM workflows w
         LEFT JOIN workflow_secrets s ON w.id = s.workflow_id
-        WHERE s.id IS NULL AND w.name LIKE '%test%' OR w.name LIKE '%deploy%'
+        WHERE s.id IS NULL AND (w.name LIKE '%test%' OR w.name LIKE '%deploy%')
     " | while read -r workflow; do
         [[ -z "$workflow" ]] && continue
         sqlite3 "$DB_PATH" "INSERT INTO config_issues (source, severity, issue_type, description, file_path)
