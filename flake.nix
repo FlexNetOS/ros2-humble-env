@@ -85,25 +85,20 @@
         { pkgs, system, ... }:
         let
           # Configure nixpkgs with allowUnfree for packages like vault (BSL license)
-          # Import holochain overlay using fetchFromGitHub (not a flake)
-          holochainOverlay = self: super: 
-            let
-              holochainPkgs = import (super.fetchFromGitHub {
-                owner = "spartan-holochain-counsel";
-                repo = "nix-overlay";
-                rev = "2a321bc7d6d94f169c6071699d9a89acd55039bb";
-                sha256 = "sha256-LZkgXdLY+C+1CxynKzsdtM0g4gC0NJjPP3d24pHPyIU=";
-              }) {
-                pkgs = super;
-                inherit system;
-              };
-            in holochainPkgs;
+          # Define the holochain source
+          holochainSrc = inputs.nixpkgs.legacyPackages.${system}.fetchFromGitHub {
+            owner = "spartan-holochain-counsel";
+            repo = "nix-overlay";
+            rev = "2a321bc7d6d94f169c6071699d9a89acd55039bb";
+            sha256 = "sha256-LZkgXdLY+C+1CxynKzsdtM0g4gC0NJjPP3d24pHPyIU=";
+          };
 
           pkgs = import inputs.nixpkgs {
             inherit system;
             config.allowUnfree = true;
             overlays = [
-              holochainOverlay
+              # Holochain overlay - import the overlay function from the repository
+              (import "${holochainSrc}/holochain-overlay")
             ];
           };
 
