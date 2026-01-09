@@ -5,10 +5,18 @@
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     flake-parts.url = "github:hercules-ci/flake-parts";
     systems.url = "github:nix-systems/default";
+    devshell.url = "github:numtide/devshell";
 
     # Home-manager for user configuration
     home-manager = {
       url = "github:nix-community/home-manager";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    # Holochain overlay for P2P coordination (BUILDKIT_STARTER_SPEC.md L11)
+    # Provides: holochain, hc, lair-keystore
+    holochain-nix = {
+      url = "github:spartan-holochain-counsel/nix-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -19,6 +27,9 @@
       nixpkgs,
       flake-parts,
       systems,
+      devshell,
+      home-manager,
+      holochain-nix,
       home-manager,
       ...
     }:
@@ -70,6 +81,24 @@
 
       # Per-system outputs
       perSystem =
+        { pkgs, system, ... }:
+        let
+          # Configure nixpkgs with allowUnfree for packages like vault (BSL license)
+          # Apply Holochain overlay for P2P coordination
+          pkgs = import inputs.nixpkgs {
+            inherit system;
+            config.allowUnfree = true;
+            overlays = [
+              holochain-nix.overlays.default
+            ];
+          };
+
+          # Holochain packages from overlay (P0 - MANDATORY per BUILDKIT_STARTER_SPEC.md)
+          holochainPackages = with pkgs; [
+            holochain       # Holochain conductor (agent-centric P2P)
+            hc              # Holochain dev CLI (scaffold/package/run)
+            lair-keystore   # Secure keystore for Holochain agent keys
+          ];
         { system, ... }:
         let
           # Configure nixpkgs with allowUnfree for packages like vault (BSL license)
@@ -148,6 +177,7 @@
             nats-server         # WAN/multi-site robot messaging
             trippy              # Network diagnostics for DDS traffic
             trivy               # Container/SBOM security scanning
+            opa                 # Policy enforcement for ROS2 topics
             syft                # SBOM generation
             grype               # Vulnerability scanning from SBOM
             cosign              # Container image signing and verification
@@ -165,6 +195,20 @@
             # Note: Vault uses BSL license - requires NIXPKGS_ALLOW_UNFREE=1
             # For dev mode: vault server -dev -dev-root-token-id root
             vault               # HashiCorp Vault for secrets management
+
+            # P2P & Content-Addressed Storage (BUILDKIT_STARTER_SPEC.md L10-11)
+            kubo                # IPFS implementation (content-addressed storage)
+
+            # Supply Chain Security (BUILDKIT_STARTER_SPEC.md L18)
+            syft                # SBOM generation (anchore)
+            grype               # Vulnerability scanning from SBOM (anchore)
+            cosign              # Container/artifact signing (sigstore)
+
+            # PKI Automation (BUILDKIT_STARTER_SPEC.md L5)
+            step-cli            # smallstep CLI for mTLS/PKI
+
+            # Isolation & Sandboxing (BUILDKIT_STARTER_SPEC.md L3)
+            firecracker         # MicroVM for untrusted workloads
 
             # Shells
             zsh
@@ -527,6 +571,7 @@
             packages =
               basePackages
               ++ fullExtras
+              ++ holochainPackages  # P0: Holochain coordination layer
               ++ coreCommandWrappers
               ++ aiCommandWrappers
               ++ linuxPackages
@@ -562,6 +607,8 @@
 
               # ROS2 environment info
               echo ""
+              echo "ROS2 Humble Development Environment (Full)"
+              echo "==========================================="
               echo "🤖 ROS2 Humble Development Environment"
               echo "======================================"
               echo "  Platform: ${if isDarwin then "macOS" else "Linux"} (${system})"
@@ -584,6 +631,10 @@
               echo "  agixt     - AGiXT platform via Docker (up|down|logs|status)"
               echo "  aios      - AIOS Agent Kernel management (install|start|stop|status)"
               echo ""
+              echo "Holochain (P2P coordination):"
+              echo "  holochain - Holochain conductor"
+              echo "  hc        - Holochain dev CLI"
+              echo ""
               echo "Rust (AGiXT SDK):"
               echo "  cargo build -p agixt-bridge  # Build AGiXT-ROS2 bridge"
               echo ""
@@ -595,6 +646,7 @@
           # Requires: NVIDIA GPU with drivers installed
           # Binary cache: https://cache.nixos-cuda.org
           devShells.cuda = pkgs.mkShell {
+            packages = basePackages ++ fullExtras ++ holochainPackages ++ coreCommandWrappers ++ aiCommandWrappers ++ linuxPackages ++ (with pkgs; [
             packages = basePackages ++ fullExtras ++ coreCommandWrappers ++ aiCommandWrappers ++ linuxPackages ++ (with pkgs; [
               # CUDA Toolkit 13.x (or latest available)
               # See docs/CONFLICTS.md for version details
@@ -651,7 +703,8 @@
 
               # Verify CUDA availability
               if command -v nvidia-smi &> /dev/null; then
-                echo ""
+                echo "
+                echo "==========================================="
                 echo "🚀 ROS2 Humble + CUDA Development Environment"
                 echo "=============================================="
                 echo "  Platform: Linux (${system}) with NVIDIA GPU"
@@ -679,6 +732,11 @@
                 echo ""
               fi
             '';
+          };
+
+          # Legacy devshell (for compatibility with existing workflows)
+          devshells.default = {
+            env = [
 
             # Command aliases
             commands = [
