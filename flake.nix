@@ -133,6 +133,11 @@
             trivy               # Container/SBOM security scanning
             opa                 # Policy enforcement for ROS2 topics
 
+            # Secrets Management (see docs/GITHUB-RESOURCES.md)
+            # Note: Vault uses BSL license - requires NIXPKGS_ALLOW_UNFREE=1
+            # For dev mode: vault server -dev -dev-root-token-id root
+            vault               # HashiCorp Vault for secrets management
+
             # Shells
             zsh
             nushell
@@ -180,6 +185,11 @@
             inotify-tools
             strace
             gdb
+
+            # Container security (sandboxing untrusted ROS2 packages)
+            # Usage: docker run --runtime=runsc ...
+            # See docs/GITHUB-RESOURCES.md for gVisor integration guide
+            gvisor              # OCI runtime for container sandboxing
           ];
 
           # macOS-specific packages
@@ -227,6 +237,17 @@
               # Wrapper for promptfoo LLM testing tool
               # Uses npx to run the latest version without global installation
               exec npx promptfoo@latest "$@"
+            '')
+            (pkgs.writeShellScriptBin "vault-dev" ''
+              # Start HashiCorp Vault in development mode
+              # - Auto-unsealed, in-memory storage
+              # - Root token: root (for dev only!)
+              # - TLS enabled with auto-generated certs
+              echo "Starting Vault in dev mode..."
+              echo "  Address: https://127.0.0.1:8200"
+              echo "  Token: root"
+              echo ""
+              exec vault server -dev -dev-root-token-id root -dev-tls "$@"
             '')
           ];
 
