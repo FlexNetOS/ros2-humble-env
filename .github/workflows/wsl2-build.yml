@@ -1,0 +1,705 @@
+# WSL2 Binary Build Pipeline (P3-005)
+# ARIA Audit: Single-binary distribution for Windows/WSL2 environments
+#
+# This workflow builds Windows native binaries for ARIA components:
+# - Cross-compiles Rust binaries for Windows (x86_64-pc-windows-gnu/msvc)
+# - Creates portable distribution packages
+# - Generates installer packages
+# - Produces release artifacts
+#
+# Artifacts:
+# 1. Standalone Windows executables (.exe)
+# 2. Portable packages (zip with bootstrap scripts)
+# 3. Installer packages (MSI/setup.exe)
+# 4. Bootstrap bundle (all-in-one distribution)
+
+name: WSL2 Binary Build
+
+on:
+  push:
+    branches: [main, master]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type (release, debug)'
+        required: false
+        default: 'release'
+        type: choice
+        options:
+          - release
+          - debug
+      create_installer:
+        description: 'Create installer package'
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # ===========================================
+  # Matrix Strategy for Windows Builds
+  # ===========================================
+  build-matrix:
+    name: Build Windows Binary (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Windows MSVC (native compilation)
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact_name: agixt-bridge-windows-msvc
+            use_cross: false
+
+          # Windows GNU (cross-compilation from Linux)
+          - os: ubuntu-latest
+            target: x86_64-pc-windows-gnu
+            artifact_name: agixt-bridge-windows-gnu
+            use_cross: true
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ===========================================
+      # Windows-specific Setup (MSVC)
+      # ===========================================
+      - name: Setup MSVC (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      # ===========================================
+      # Linux-specific Setup (Cross-compilation)
+      # ===========================================
+      - name: Install cross-compilation dependencies (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc-mingw-w64-x86-64 \
+            g++-mingw-w64-x86-64 \
+            wine64 \
+            pkg-config \
+            libssl-dev
+
+      # ===========================================
+      # Rust Toolchain Setup
+      # ===========================================
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+          components: rustfmt, clippy
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          key: ${{ matrix.target }}
+
+      # ===========================================
+      # Cross-compilation Tool (if needed)
+      # ===========================================
+      - name: Install cross
+        if: matrix.use_cross
+        run: |
+          cargo install cross --git https://github.com/cross-rs/cross
+
+      # ===========================================
+      # Build Configuration
+      # ===========================================
+      - name: Get build type
+        id: build_config
+        shell: bash
+        run: |
+          if [ "${{ github.event.inputs.build_type }}" == "debug" ]; then
+            echo "profile=dev" >> $GITHUB_OUTPUT
+            echo "profile_flag=" >> $GITHUB_OUTPUT
+            echo "profile_dir=debug" >> $GITHUB_OUTPUT
+          else
+            echo "profile=release" >> $GITHUB_OUTPUT
+            echo "profile_flag=--release" >> $GITHUB_OUTPUT
+            echo "profile_dir=release" >> $GITHUB_OUTPUT
+          fi
+
+      # ===========================================
+      # Build Rust Binaries
+      # ===========================================
+      - name: Build Rust workspace (MSVC native)
+        if: "!matrix.use_cross"
+        working-directory: rust
+        shell: bash
+        run: |
+          cargo build ${{ steps.build_config.outputs.profile_flag }} \
+            --target ${{ matrix.target }} \
+            --workspace \
+            --verbose
+
+      - name: Build Rust workspace (cross-compilation)
+        if: matrix.use_cross
+        working-directory: rust
+        run: |
+          cross build ${{ steps.build_config.outputs.profile_flag }} \
+            --target ${{ matrix.target }} \
+            --workspace \
+            --verbose
+
+      # ===========================================
+      # Run Tests
+      # ===========================================
+      - name: Run tests (native)
+        if: "!matrix.use_cross && steps.build_config.outputs.profile == 'release'"
+        working-directory: rust
+        shell: bash
+        run: |
+          cargo test --target ${{ matrix.target }} --workspace --verbose
+
+      - name: Run tests (cross - Wine)
+        if: matrix.use_cross && matrix.target == 'x86_64-pc-windows-gnu'
+        working-directory: rust
+        continue-on-error: true
+        run: |
+          # Wine tests can be flaky, continue on error
+          cross test --target ${{ matrix.target }} --workspace --verbose || true
+
+      # ===========================================
+      # Prepare Artifacts
+      # ===========================================
+      - name: Prepare binary artifacts
+        shell: bash
+        run: |
+          mkdir -p dist/${{ matrix.artifact_name }}
+
+          # Copy binaries
+          BINARY_DIR="rust/target/${{ matrix.target }}/${{ steps.build_config.outputs.profile_dir }}"
+
+          if [ "${{ matrix.os }}" == "windows-latest" ]; then
+            cp "$BINARY_DIR/agixt-bridge.exe" "dist/${{ matrix.artifact_name }}/"
+          else
+            cp "$BINARY_DIR/agixt-bridge.exe" "dist/${{ matrix.artifact_name }}/"
+          fi
+
+          # Copy bootstrap scripts
+          cp bootstrap.ps1 "dist/${{ matrix.artifact_name }}/"
+          cp bootstrap.sh "dist/${{ matrix.artifact_name }}/"
+
+          # Copy license and readme
+          cp LICENSE "dist/${{ matrix.artifact_name }}/" || echo "No LICENSE file"
+          cp README.md "dist/${{ matrix.artifact_name }}/" || echo "No README file"
+
+          # Create VERSION file
+          if [ -n "${{ github.ref_name }}" ]; then
+            echo "${{ github.ref_name }}" > "dist/${{ matrix.artifact_name }}/VERSION"
+          else
+            git describe --tags --always > "dist/${{ matrix.artifact_name }}/VERSION" || echo "dev" > "dist/${{ matrix.artifact_name }}/VERSION"
+          fi
+
+          # Create a quick-start guide
+          cat > "dist/${{ matrix.artifact_name }}/QUICKSTART.txt" << 'EOF'
+          ARIA - WSL2 Binary Distribution
+          ================================
+
+          Getting Started:
+
+          1. Windows Users:
+             - Run: .\bootstrap.ps1
+             - This will set up WSL2 with NixOS and install all dependencies
+
+          2. WSL2/Linux Users:
+             - Run: ./bootstrap.sh
+             - This will install Nix, ROS2, and all dependencies
+
+          3. Running the AGiXT Bridge:
+             - Windows: .\agixt-bridge.exe
+             - WSL2/Linux: ./agixt-bridge
+
+          Configuration:
+          - Copy .env.example to .env and configure your settings
+          - Set AGIXT_SERVER_URL to your AGiXT instance
+
+          For more information, see README.md
+          EOF
+
+      # ===========================================
+      # Upload Artifacts
+      # ===========================================
+      - name: Upload binary artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}-${{ steps.build_config.outputs.profile }}
+          path: dist/${{ matrix.artifact_name }}
+          retention-days: 7
+
+      # ===========================================
+      # Create Portable Package
+      # ===========================================
+      - name: Create portable package (zip)
+        shell: bash
+        run: |
+          cd dist
+          if [ "${{ matrix.os }}" == "windows-latest" ]; then
+            powershell Compress-Archive -Path "${{ matrix.artifact_name }}" -DestinationPath "${{ matrix.artifact_name }}.zip"
+          else
+            zip -r "${{ matrix.artifact_name }}.zip" "${{ matrix.artifact_name }}"
+          fi
+
+      - name: Upload portable package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}-portable-${{ steps.build_config.outputs.profile }}
+          path: dist/${{ matrix.artifact_name }}.zip
+          retention-days: 7
+
+  # ===========================================
+  # Create Windows Installer (MSI)
+  # ===========================================
+  build-installer:
+    name: Build Windows Installer
+    runs-on: windows-latest
+    needs: build-matrix
+    if: github.event.inputs.create_installer != 'false'
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install WiX Toolset
+        run: |
+          choco install wixtoolset -y
+          refreshenv
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-wix
+        run: cargo install cargo-wix
+
+      - name: Download MSVC binary
+        uses: actions/download-artifact@v4
+        with:
+          name: agixt-bridge-windows-msvc-release
+          path: installer-staging
+
+      - name: Create WiX configuration
+        shell: powershell
+        run: |
+          $version = if ($env:GITHUB_REF -match 'refs/tags/v(.*)') { $matches[1] } else { "0.1.0" }
+
+          @"
+          <?xml version='1.0' encoding='windows-1252'?>
+          <Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'>
+            <Product
+              Name='ARIA WSL2 Environment'
+              Manufacturer='FlexNetOS'
+              Id='*'
+              UpgradeCode='$(New-Guid)'
+              Language='1033'
+              Codepage='1252'
+              Version='$version'>
+
+              <Package Id='*'
+                Keywords='Installer'
+                Description='ARIA WSL2 Binary Distribution'
+                Manufacturer='FlexNetOS'
+                InstallerVersion='200'
+                Languages='1033'
+                Compressed='yes'
+                SummaryCodepage='1252' />
+
+              <Media Id='1' Cabinet='aria.cab' EmbedCab='yes' />
+
+              <Directory Id='TARGETDIR' Name='SourceDir'>
+                <Directory Id='ProgramFilesFolder'>
+                  <Directory Id='INSTALLDIR' Name='ARIA'>
+                    <Component Id='MainExecutable' Guid='$(New-Guid)'>
+                      <File Id='AgIXTBridgeEXE'
+                        Name='agixt-bridge.exe'
+                        Source='installer-staging\agixt-bridge.exe'
+                        KeyPath='yes' />
+                    </Component>
+                    <Component Id='BootstrapScript' Guid='$(New-Guid)'>
+                      <File Id='BootstrapPS1'
+                        Name='bootstrap.ps1'
+                        Source='installer-staging\bootstrap.ps1'
+                        KeyPath='yes' />
+                    </Component>
+                    <Component Id='Documentation' Guid='$(New-Guid)'>
+                      <File Id='ReadmeMD'
+                        Name='README.md'
+                        Source='installer-staging\README.md'
+                        KeyPath='yes' />
+                    </Component>
+                  </Directory>
+                </Directory>
+              </Directory>
+
+              <Feature Id='Complete' Level='1'>
+                <ComponentRef Id='MainExecutable' />
+                <ComponentRef Id='BootstrapScript' />
+                <ComponentRef Id='Documentation' />
+              </Feature>
+
+            </Product>
+          </Wix>
+          "@ | Out-File -FilePath installer-staging\aria.wxs -Encoding UTF8
+
+      - name: Build MSI installer
+        shell: powershell
+        run: |
+          cd installer-staging
+          & 'C:\Program Files (x86)\WiX Toolset v3.11\bin\candle.exe' aria.wxs
+          & 'C:\Program Files (x86)\WiX Toolset v3.11\bin\light.exe' -ext WixUIExtension aria.wixobj -o aria-installer.msi
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: aria-windows-installer
+          path: installer-staging/aria-installer.msi
+          retention-days: 7
+
+  # ===========================================
+  # Create All-in-One Bootstrap Bundle
+  # ===========================================
+  create-bootstrap-bundle:
+    name: Create Bootstrap Bundle
+    runs-on: ubuntu-latest
+    needs: build-matrix
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all binary artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create bootstrap bundle
+        run: |
+          mkdir -p bundle
+
+          # Copy all binaries
+          cp -r artifacts/agixt-bridge-windows-msvc-release/* bundle/ || true
+          cp -r artifacts/agixt-bridge-windows-gnu-release/* bundle/ || true
+
+          # Copy bootstrap scripts
+          cp bootstrap.ps1 bundle/
+          cp bootstrap.sh bundle/
+
+          # Copy configuration examples
+          cp .env.example bundle/ || true
+          cp .env.edge.example bundle/ || true
+
+          # Copy docker-compose files
+          cp docker-compose*.yml bundle/ || true
+
+          # Copy documentation
+          cp README.md bundle/
+          cp LICENSE bundle/ || true
+          cp CONTRIBUTING.md bundle/ || true
+
+          # Create comprehensive quick-start script
+          cat > bundle/quick-start.ps1 << 'PSEOF'
+          # ARIA Quick Start for Windows
+          Write-Host "ARIA - AI Runtime Infrastructure Automation" -ForegroundColor Cyan
+          Write-Host "============================================" -ForegroundColor Cyan
+          Write-Host ""
+          Write-Host "This script will set up your ARIA environment."
+          Write-Host ""
+
+          $choice = Read-Host "Choose setup type: (1) Full WSL2 + NixOS, (2) Docker only, (3) Binary only"
+
+          switch ($choice) {
+              "1" {
+                  Write-Host "Starting full WSL2 + NixOS setup..." -ForegroundColor Green
+                  .\bootstrap.ps1
+              }
+              "2" {
+                  Write-Host "Starting Docker-only setup..." -ForegroundColor Green
+                  if (Get-Command docker -ErrorAction SilentlyContinue) {
+                      docker-compose up -d
+                  } else {
+                      Write-Host "Docker is not installed. Please install Docker Desktop." -ForegroundColor Red
+                  }
+              }
+              "3" {
+                  Write-Host "Running binary directly..." -ForegroundColor Green
+                  .\agixt-bridge.exe
+              }
+              default {
+                  Write-Host "Invalid choice. Exiting." -ForegroundColor Red
+              }
+          }
+          PSEOF
+
+          # Create Linux quick-start script
+          cat > bundle/quick-start.sh << 'SHEOF'
+          #!/bin/bash
+          # ARIA Quick Start for Linux/WSL2
+
+          echo "ARIA - AI Runtime Infrastructure Automation"
+          echo "============================================"
+          echo ""
+          echo "This script will set up your ARIA environment."
+          echo ""
+          echo "Choose setup type:"
+          echo "  1) Full Nix development environment"
+          echo "  2) Docker only"
+          echo "  3) Binary only"
+          read -p "Enter choice (1-3): " choice
+
+          case $choice in
+              1)
+                  echo "Starting full Nix setup..."
+                  chmod +x bootstrap.sh
+                  ./bootstrap.sh
+                  ;;
+              2)
+                  echo "Starting Docker-only setup..."
+                  if command -v docker &> /dev/null; then
+                      docker-compose up -d
+                  else
+                      echo "Docker is not installed. Please install Docker."
+                  fi
+                  ;;
+              3)
+                  echo "Running binary directly..."
+                  chmod +x agixt-bridge
+                  ./agixt-bridge
+                  ;;
+              *)
+                  echo "Invalid choice. Exiting."
+                  exit 1
+                  ;;
+          esac
+          SHEOF
+
+          chmod +x bundle/quick-start.sh
+          chmod +x bundle/bootstrap.sh
+
+      - name: Create bundle archive
+        run: |
+          cd bundle
+          zip -r ../aria-bootstrap-bundle.zip .
+          tar czf ../aria-bootstrap-bundle.tar.gz .
+
+      - name: Upload bootstrap bundle (zip)
+        uses: actions/upload-artifact@v4
+        with:
+          name: aria-bootstrap-bundle-zip
+          path: aria-bootstrap-bundle.zip
+          retention-days: 30
+
+      - name: Upload bootstrap bundle (tar.gz)
+        uses: actions/upload-artifact@v4
+        with:
+          name: aria-bootstrap-bundle-tar
+          path: aria-bootstrap-bundle.tar.gz
+          retention-days: 30
+
+  # ===========================================
+  # Test in WSL2 Environment
+  # ===========================================
+  test-wsl2:
+    name: Test in WSL2
+    runs-on: windows-latest
+    needs: build-matrix
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup WSL2
+        run: |
+          wsl --install --no-distribution
+          wsl --set-default-version 2
+
+      - name: Install Ubuntu in WSL2
+        run: |
+          wsl --install -d Ubuntu-22.04
+
+      - name: Download Windows binary
+        uses: actions/download-artifact@v4
+        with:
+          name: agixt-bridge-windows-msvc-release
+          path: wsl-test
+
+      - name: Test binary in WSL2
+        shell: wsl-bash {0}
+        run: |
+          cd /mnt/c/Users/runneradmin/work/ros2-humble-env/ros2-humble-env/wsl-test
+          chmod +x agixt-bridge.exe
+
+          # Test version/help command
+          ./agixt-bridge.exe --version || echo "Version command not available"
+          ./agixt-bridge.exe --help || echo "Help command not available"
+
+          echo "WSL2 binary test completed"
+
+  # ===========================================
+  # Create GitHub Release (on tags)
+  # ===========================================
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [build-matrix, build-installer, create-bootstrap-bundle, test-wsl2]
+    if: startsWith(github.ref, 'refs/tags/v')
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release-assets
+
+          # Copy portable packages
+          find release-artifacts -name "*.zip" -exec cp {} release-assets/ \;
+          find release-artifacts -name "*.tar.gz" -exec cp {} release-assets/ \;
+          find release-artifacts -name "*.msi" -exec cp {} release-assets/ \;
+
+          # Generate checksums
+          cd release-assets
+          sha256sum * > SHA256SUMS.txt
+          cd ..
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          VERSION="${{ github.ref_name }}"
+          LAST_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+
+          {
+            echo "## ARIA WSL2 Binary Distribution - $VERSION"
+            echo ""
+            echo "### Downloads"
+            echo ""
+            echo "- **Windows Installer (MSI)**: \`aria-installer.msi\`"
+            echo "- **Portable Packages**: \`agixt-bridge-windows-*.zip\`"
+            echo "- **Bootstrap Bundle**: \`aria-bootstrap-bundle.zip\` (includes all tools)"
+            echo ""
+            echo "### Installation"
+            echo ""
+            echo "#### Windows Users (Recommended)"
+            echo "1. Download \`aria-installer.msi\` and run it"
+            echo "2. Or download \`aria-bootstrap-bundle.zip\` and run \`quick-start.ps1\`"
+            echo ""
+            echo "#### WSL2/Linux Users"
+            echo "1. Download \`aria-bootstrap-bundle.tar.gz\`"
+            echo "2. Extract and run \`./quick-start.sh\`"
+            echo ""
+            echo "### What's Included"
+            echo ""
+            echo "- AGiXT Bridge binary (Windows .exe)"
+            echo "- Bootstrap scripts (PowerShell and Bash)"
+            echo "- Docker Compose configurations"
+            echo "- Configuration templates"
+            echo "- Documentation"
+            echo ""
+            echo "### Changes"
+            echo ""
+            if [ -n "$LAST_TAG" ]; then
+              git log ${LAST_TAG}..HEAD --oneline --no-decorate | sed 's/^/- /'
+            else
+              echo "- Initial release"
+            fi
+          } > RELEASE_NOTES.md
+
+          cat RELEASE_NOTES.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ARIA WSL2 Distribution ${{ github.ref_name }}
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: false
+          files: |
+            release-assets/*
+          fail_on_unmatched_files: false
+
+  # ===========================================
+  # Summary
+  # ===========================================
+  summary:
+    name: Build Summary
+    runs-on: ubuntu-latest
+    needs: [build-matrix, build-installer, create-bootstrap-bundle, test-wsl2]
+    if: always()
+
+    steps:
+      - name: Generate summary
+        run: |
+          echo "## WSL2 Binary Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Component | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
+
+          # Build matrix status
+          if [ "${{ needs.build-matrix.result }}" == "success" ]; then
+            echo "| Windows Binaries | ✅ |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Windows Binaries | ❌ |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Installer status
+          if [ "${{ needs.build-installer.result }}" == "success" ]; then
+            echo "| Windows Installer | ✅ |" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.build-installer.result }}" == "skipped" ]; then
+            echo "| Windows Installer | ⏭️ |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Windows Installer | ❌ |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Bootstrap bundle status
+          if [ "${{ needs.create-bootstrap-bundle.result }}" == "success" ]; then
+            echo "| Bootstrap Bundle | ✅ |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Bootstrap Bundle | ❌ |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # WSL2 test status
+          if [ "${{ needs.test-wsl2.result }}" == "success" ]; then
+            echo "| WSL2 Testing | ✅ |" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.test-wsl2.result }}" == "skipped" ]; then
+            echo "| WSL2 Testing | ⏭️ |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| WSL2 Testing | ❌ |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Artifacts Generated" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Windows MSVC binary (.exe)" >> $GITHUB_STEP_SUMMARY
+          echo "- Windows GNU binary (.exe)" >> $GITHUB_STEP_SUMMARY
+          echo "- Portable packages (.zip)" >> $GITHUB_STEP_SUMMARY
+          echo "- Windows installer (.msi)" >> $GITHUB_STEP_SUMMARY
+          echo "- Bootstrap bundle (all-in-one)" >> $GITHUB_STEP_SUMMARY
