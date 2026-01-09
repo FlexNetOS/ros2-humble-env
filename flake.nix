@@ -152,18 +152,29 @@
             aichat
             aider-chat
 
-            # AI inference (edge/local models)
-            # local-ai           # Uncomment when needed - large package (~2GB)
-                                 # Alternative: docker run -p 8080:8080 localai/localai
+            # AI inference (edge/local models) - LocalAI
+            # OpenAI-compatible API server for local LLM inference
+            # Supports: GGUF, GGML, Safetensors models
+            # P2P federation for multi-robot distributed inference
+            # See: docs/adr/adr-006-agixt-integration.md
+            local-ai
 
             # Audio (for aider voice features)
             portaudio
 
             # Build tools & compilation cache
             ccache              # Fast C/C++ compilation cache
-            sccache             # Distributed compilation cache (cloud support)used as a compiler wrapper and avoids compilation when possible. Sccache has the capability to utilize caching in remote storage environments, in local storage.
+            sccache             # Distributed compilation cache (cloud support)
             mold                # Fast modern linker (12x faster than lld)
             maturin             # Build tool for PyO3 Rust-Python bindings
+
+            # Rust toolchain (for AGiXT Rust SDK and ROS2 bridges)
+            # See: rust/agixt-bridge/Cargo.toml
+            cargo               # Rust package manager
+            rustc               # Rust compiler
+            rust-analyzer       # Rust LSP for editors
+            rustfmt             # Rust code formatter
+            clippy              # Rust linter
 
             # Database tools
             sqlx-cli            # SQL database CLI for migrations and schema management
@@ -241,6 +252,86 @@
               # Uses npx to run the latest version without global installation
               exec npx promptfoo@latest "$@"
             '')
+            # LocalAI management commands
+            (pkgs.writeShellScriptBin "localai" ''
+              # LocalAI server management
+              # Usage: localai [start|stop|status|models]
+              LOCALAI_MODELS="''${LOCALAI_MODELS_PATH:-$HOME/.local/share/localai/models}"
+              mkdir -p "$LOCALAI_MODELS"
+
+              case "''${1:-start}" in
+                start)
+                  echo "Starting LocalAI on port 8080..."
+                  echo "Models directory: $LOCALAI_MODELS"
+                  exec local-ai --models-path "$LOCALAI_MODELS" --address ":8080" "''${@:2}"
+                  ;;
+                stop)
+                  pkill -f "local-ai" && echo "LocalAI stopped" || echo "LocalAI not running"
+                  ;;
+                status)
+                  if pgrep -f "local-ai" > /dev/null; then
+                    echo "LocalAI is running"
+                    curl -s http://localhost:8080/readyz && echo " - API ready"
+                  else
+                    echo "LocalAI is not running"
+                  fi
+                  ;;
+                models)
+                  echo "Available models in $LOCALAI_MODELS:"
+                  ls -la "$LOCALAI_MODELS" 2>/dev/null || echo "  (none)"
+                  ;;
+                *)
+                  echo "Usage: localai [start|stop|status|models]"
+                  echo "  start  - Start LocalAI server (port 8080)"
+                  echo "  stop   - Stop LocalAI server"
+                  echo "  status - Check if LocalAI is running"
+                  echo "  models - List available models"
+                  ;;
+              esac
+            '')
+            # AGiXT Docker Compose management
+            (pkgs.writeShellScriptBin "agixt" ''
+              # AGiXT management via Docker Compose
+              # Usage: agixt [up|down|logs|status|shell]
+              AGIXT_DIR="''${AGIXT_DIR:-$PWD}"
+              COMPOSE_FILE="$AGIXT_DIR/docker-compose.agixt.yml"
+
+              if [ ! -f "$COMPOSE_FILE" ]; then
+                echo "Error: docker-compose.agixt.yml not found in $AGIXT_DIR"
+                echo "Create it first or set AGIXT_DIR to the correct location"
+                exit 1
+              fi
+
+              case "''${1:-status}" in
+                up)
+                  echo "Starting AGiXT services..."
+                  docker compose -f "$COMPOSE_FILE" up -d "''${@:2}"
+                  echo ""
+                  echo "AGiXT API: http://localhost:7437"
+                  echo "AGiXT UI:  http://localhost:3437"
+                  ;;
+                down)
+                  echo "Stopping AGiXT services..."
+                  docker compose -f "$COMPOSE_FILE" down "''${@:2}"
+                  ;;
+                logs)
+                  docker compose -f "$COMPOSE_FILE" logs -f "''${@:2}"
+                  ;;
+                status)
+                  docker compose -f "$COMPOSE_FILE" ps
+                  ;;
+                shell)
+                  docker compose -f "$COMPOSE_FILE" exec agixt /bin/bash
+                  ;;
+                *)
+                  echo "Usage: agixt [up|down|logs|status|shell]"
+                  echo "  up     - Start AGiXT services (API, UI, DB, S3)"
+                  echo "  down   - Stop AGiXT services"
+                  echo "  logs   - Follow AGiXT logs"
+                  echo "  status - Show service status"
+                  echo "  shell  - Open shell in AGiXT container"
+                  ;;
+              esac
             (pkgs.writeShellScriptBin "vault-dev" ''
               # Start HashiCorp Vault in development mode
               # - Auto-unsealed, in-memory storage
@@ -355,6 +446,13 @@
               echo "  ai        - AI chat (aichat, lightweight)"
               echo "  pair      - AI pair programming (aider, git-integrated)"
               echo "  promptfoo - LLM testing & evaluation (robot command parsing)"
+              echo ""
+              echo "AI infrastructure:"
+              echo "  localai   - LocalAI server management (start|stop|status|models)"
+              echo "  agixt     - AGiXT platform via Docker (up|down|logs|status)"
+              echo ""
+              echo "Rust (AGiXT SDK):"
+              echo "  cargo build -p agixt-bridge  # Build AGiXT-ROS2 bridge"
               echo ""
             '';
           };
