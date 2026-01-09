@@ -198,8 +198,10 @@ parse_workflows() {
             sed 's/.*secrets\.//' | sort -u | \
         while read -r secret; do
             [[ -z "$secret" ]] && continue
+            # Escape single quotes for safe SQL insertion
+            local escaped_secret=${secret//\'/\'\'}
             sqlite3 "$DB_PATH" "INSERT OR IGNORE INTO workflow_secrets (workflow_id, secret_name)
-                VALUES ($workflow_id, '$secret');" 2>/dev/null || true
+                VALUES ($workflow_id, '$escaped_secret');" 2>/dev/null || true
         done
 
     done
