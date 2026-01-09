@@ -741,7 +741,7 @@
 
           # NOTE: Legacy devshells.default was removed - it required the devshell
           # flake-parts module which isn't imported. Use devShells.default instead.
-          # The command aliases (cb, ct, ctr, etc.) are available in the shellHook.
+          # The command aliases (cb, ct, ctr, etc.) are available as executable commands in devShells.default.
 
           # Identity & Auth shell for Keycloak/Vaultwarden development (Linux only)
           # Usage: nix develop .#identity
