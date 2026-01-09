@@ -1501,24 +1501,29 @@ PROMCFG
 
               # Validate environment variables
               validate_host() {
-                if [[ ! "$1" =~ ^[a-zA-Z0-9.-]+:[0-9]+$ ]] && [[ ! "$1" =~ ^[a-zA-Z0-9.-]+$ ]]; then
-                  echo "Error: Invalid host format: $1" >&2
-                  exit 1
+                # Allow hostname:port or just hostname format
+                if [[ "$1" =~ ^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?(:[0-9]+)?$ ]]; then
+                  return 0
                 fi
+                echo "Error: Invalid host format: $1" >&2
+                exit 1
               }
               
               validate_url() {
-                if [[ ! "$1" =~ ^https?://[a-zA-Z0-9.-]+(:[0-9]+)?(/.*)?$ ]]; then
-                  echo "Error: Invalid URL format: $1" >&2
-                  exit 1
+                # Basic URL validation for http/https
+                if [[ "$1" =~ ^https?://[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?(:[0-9]+)?(/.*)?$ ]]; then
+                  return 0
                 fi
+                echo "Error: Invalid URL format: $1" >&2
+                exit 1
               }
               
               validate_namespace() {
-                if [[ ! "$1" =~ ^[a-zA-Z0-9._-]+$ ]]; then
-                  echo "Error: Invalid namespace format: $1 (must be alphanumeric with .-_)" >&2
-                  exit 1
+                if [[ "$1" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+                  return 0
                 fi
+                echo "Error: Invalid namespace format: $1 (must be alphanumeric with .-_)" >&2
+                exit 1
               }
 
               TEMPORAL_ADDRESS="''${TEMPORAL_ADDRESS:-localhost:7233}"
@@ -1659,24 +1664,29 @@ PROMCFG
               
               # Validate environment variables
               validate_host() {
-                if [[ ! "$1" =~ ^[a-zA-Z0-9.-]+$ ]]; then
-                  echo "Error: Invalid host format: $1" >&2
-                  exit 1
+                # Hostname format validation
+                if [[ "$1" =~ ^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?$ ]]; then
+                  return 0
                 fi
+                echo "Error: Invalid host format: $1" >&2
+                exit 1
               }
               
               validate_port() {
-                if ! [[ "$1" =~ ^[0-9]+$ ]] || [ "$1" -lt 1 ] || [ "$1" -gt 65535 ]; then
-                  echo "Error: Invalid port number: $1" >&2
-                  exit 1
+                if [[ "$1" =~ ^[0-9]+$ ]] && [ "$1" -ge 1 ] && [ "$1" -le 65535 ]; then
+                  return 0
                 fi
+                echo "Error: Invalid port number: $1 (must be 1-65535)" >&2
+                exit 1
               }
               
               validate_workflow_id() {
-                if [[ ! "$1" =~ ^[a-zA-Z0-9_-]+$ ]]; then
-                  echo "Error: Invalid workflow ID format: $1" >&2
-                  exit 1
+                # Require alphanumeric start, allow hyphens/underscores in the middle
+                if [[ "$1" =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]*$ ]]; then
+                  return 0
                 fi
+                echo "Error: Invalid workflow ID format: $1 (must start with alphanumeric)" >&2
+                exit 1
               }
 
               N8N_HOST="''${N8N_HOST:-localhost}"
@@ -1719,8 +1729,8 @@ PROMCFG
                   echo "=========="
                   echo "  URL: $N8N_URL"
                   echo ""
-                  echo "  Security Note: Use HTTPS URLs in production environments"
-                  echo "                 Set N8N_URL to https://... for encrypted communication"
+                  echo "  Security Note: For production, configure N8N_HOST to point to HTTPS endpoints"
+                  echo "                 (e.g., N8N_HOST=n8n.example.com N8N_PORT=443)"
                   echo ""
                   if curl -sf "$N8N_URL/healthz" >/dev/null 2>&1; then
                     echo "  Status: HEALTHY"
@@ -1800,7 +1810,7 @@ PROMCFG
                   echo "  N8N_API_KEY - API key for authentication"
                   echo ""
                   echo "Security Notes:"
-                  echo "  - Use HTTPS URLs in production (e.g., N8N_URL=https://...)"
+                  echo "  - Configure N8N_HOST to use HTTPS endpoints in production"
                   echo "  - Always set N8N_API_KEY for authenticated access"
                   ;;
               esac
