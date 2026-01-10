@@ -1,0 +1,509 @@
+---
+# P1 Task Specifications for ARIA v2.2.0 Audit
+# Generated from audit findings: 10 high-priority gaps requiring immediate attention
+# Total estimated effort: 19 hours
+
+tasks:
+  - id: "P1-001"
+    title: "Create promptfooconfig.yaml for LLM Testing"
+    domain: "Domain 12 - LLM Evaluation & Testing"
+    issue: "Missing promptfoo configuration file for evaluating LLM model outputs"
+    description: |
+      promptfoo is an open-source framework for LLM testing and evaluation.
+      Currently no promptfooconfig.yaml exists, blocking LLM quality assurance pipelines.
+      This configuration enables automated testing of inference outputs from LocalAI models.
+    location: "/home/user/ros2-humble-env/promptfooconfig.yaml"
+    impact: |
+      - Blocks LLM model evaluation and quality assurance
+      - Prevents automated testing of inference pipelines
+      - Needed for CI/CD integration with eval-gate.yml workflow
+      - Required for prompt optimization and model fine-tuning validation
+    acceptance_criteria:
+      - "promptfooconfig.yaml created at project root"
+      - "Configuration includes LocalAI endpoint (http://localhost:8080)"
+      - "Test cases defined for model inference verification"
+      - "Prometheus metrics export configured for observability"
+      - "Documentation added to .claude/skills/llm-evaluation"
+    files_to_modify:
+      - "promptfooconfig.yaml (NEW)"
+      - ".github/workflows/eval-gate.yml"
+      - "README.md"
+    dependencies:
+      - "LocalAI models downloaded (P1-008)"
+    complexity: "Small"
+    effort_hours: 2
+    verification_command: |
+      promptfoo eval -c promptfooconfig.yaml && \
+      curl -s http://localhost:8092/metrics | grep promptfoo_ | wc -l
+    notes: |
+      - Should integrate with docker-compose.localai.yml
+      - Requires promptfoo CLI installed via pixi
+      - Consider including test cases for inference latency and accuracy
+
+  - id: "P1-002"
+    title: "Add AgentGateway Service to Docker Compose"
+    domain: "Domain 4 - Agent Gateway & Orchestration"
+    issue: |
+      AgentGateway service already defined in docker-compose.edge.yml but not discoverable
+      in main docker-compose configuration. Requires explicit docker-compose entry point.
+    description: |
+      AgentGateway (P0-004) is the agent/MCP traffic plane providing routing and orchestration.
+      While configuration exists, needs to be properly exported to main docker-compose for
+      discoverability and integration with the full agentic system stack.
+    location: "/home/user/ros2-humble-env/docker-compose.yml (or docker-compose.agentgateway.yml)"
+    impact: |
+      - AgentGateway not easily deployable with standard docker-compose up
+      - Breaks agentic system startup orchestration
+      - Prevents unified logging and monitoring across edge services
+      - Blocks agent-to-agent communication routing
+    acceptance_criteria:
+      - "docker-compose.agentgateway.yml created or merged into docker-compose.yml"
+      - "AgentGateway service includes all configuration from docker-compose.edge.yml"
+      - "Service dependencies properly declared (Kong, LocalAI)"
+      - "Volume mounts for /config/agentgateway"
+      - "Health check endpoint defined (:8090/health)"
+      - "Network configured for agentic-network"
+      - "Metrics port 8092 exposed for Prometheus"
+    files_to_modify:
+      - "docker/docker-compose.agentgateway.yml (NEW or UPDATE)"
+      - "docker-compose.yml"
+      - "docker/docker-compose.edge.yml (if consolidating)"
+      - "README.md (Docker Compose section)"
+    complexity: "Small"
+    effort_hours: 2
+    verification_command: |
+      docker-compose -f docker-compose.agentgateway.yml config | \
+      grep -A 20 "agentgateway:" && \
+      docker-compose -f docker-compose.agentgateway.yml up -d && \
+      curl -f http://localhost:8090/health
+    notes: |
+      - Keep separate from kong/edge services for modularity
+      - Ensure volume paths are relative to docker-compose location
+      - Consider creating docker/docker-compose.agentgateway.yml
+      - Add to .gitignore for generated compose files if needed
+
+  - id: "P1-003"
+    title: "Configure Gateway Authentication (Kong + AgentGateway)"
+    domain: "Domain 4 - Agent Gateway & Orchestration"
+    issue: |
+      Kong and AgentGateway services exist but lack mutual authentication.
+      Security issue: No OAuth2/OIDC integration between Kong (north-south)
+      and AgentGateway (east-west) traffic planes.
+    description: |
+      Implement authentication integration between Kong API Gateway and AgentGateway.
+      Kong handles north-south (client-to-service) traffic, AgentGateway handles east-west
+      (agent-to-agent) traffic. Both need authentication middleware to protect API access.
+    location: |
+      /home/user/ros2-humble-env/docker/docker-compose.edge.yml
+      /home/user/ros2-humble-env/config/agentgateway/config.yaml
+      /home/user/ros2-humble-env/config/kong/config.yaml (NEW)
+    impact: |
+      - Unauthenticated API access (critical security gap)
+      - No integration with Keycloak identity provider
+      - Agents can access each other without authorization checks
+      - No audit trail for gateway operations
+      - Blocks production deployment
+    acceptance_criteria:
+      - "Kong oauth2 plugin configured for north-south traffic"
+      - "Kong authenticated using Keycloak OIDC provider"
+      - "AgentGateway auth middleware enabled in config.yaml"
+      - "JWT validation on gateway requests"
+      - "Service-to-service mTLS enabled (optional: phase 2)"
+      - "Authentication policies documented in config/kong/README.md"
+      - "Integration test added to validate auth flows"
+    files_to_modify:
+      - "docker/docker-compose.edge.yml"
+      - "config/agentgateway/config.yaml"
+      - "config/kong/config.yaml (NEW)"
+      - "config/kong/auth-plugins.lua (NEW)"
+      - ".env.example (KONG_AUTH_* variables)"
+      - "SECURITY.md"
+    dependencies:
+      - "Set up Vault-Keycloak OIDC integration (P1-004)"
+      - "Deploy OPA server and load policies (P1-005)"
+    complexity: "Medium"
+    effort_hours: 4
+    verification_command: |
+      # Verify Kong auth plugin
+      curl -i http://localhost:8001/plugins | grep -c oauth2 && \
+      # Verify AgentGateway auth config
+      curl -s http://localhost:8091/config | grep -i "auth.*enabled" && \
+      # Test protected endpoint
+      curl -i http://localhost:8000/v1/models -H "Authorization: Bearer invalid" | grep "401\|403"
+    notes: |
+      - Phase 1: OAuth2 with Keycloak
+      - Phase 2: mTLS for service-to-service
+      - Consider Kong plugins: oauth2, jwt, cors, rate-limiting
+      - AgentGateway auth should validate JWT from Kong
+
+  - id: "P1-004"
+    title: "Set Up Vault-Keycloak OIDC Integration"
+    domain: "Domain 5 - Identity & Access Management"
+    issue: |
+      Vault and Keycloak exist but lack OIDC integration. Secrets cannot be
+      provisioned via identity provider. Manual credential rotation required.
+    description: |
+      Integrate Keycloak as OIDC provider for HashiCorp Vault. Enables:
+      - Vault authentication via Keycloak OIDC claims
+      - Automatic token generation for authenticated users
+      - Token rotation and revocation through Keycloak
+      - Group-based access policies
+    location: |
+      /home/user/ros2-humble-env/docker/docker-compose.identity.yml (Keycloak)
+      /home/user/ros2-humble-env/docker/docker-compose.data.yml (assumed Vault location)
+      /home/user/ros2-humble-env/config/vault/oidc-config.hcl (NEW)
+    impact: |
+      - No federated identity for secrets management
+      - Keycloak users cannot authenticate to Vault
+      - Breaks zero-trust architecture
+      - Requires manual credential updates
+      - Prevents automated secret rotation
+    acceptance_criteria:
+      - "Keycloak OIDC provider configured in Vault"
+      - "OIDC client created in Keycloak for Vault"
+      - "Vault auth method: oidc method enabled"
+      - "Role mappings from Keycloak groups to Vault policies"
+      - "Token TTL configured (e.g., 1 hour with renewal)"
+      - "JWKS endpoint configured"
+      - "Integration test validates OIDC flow"
+    files_to_modify:
+      - "config/vault/oidc-config.hcl (NEW)"
+      - "config/keycloak/oidc-client-vault.json (NEW)"
+      - "docker/docker-compose.identity.yml"
+      - "docker/docker-compose.data.yml"
+      - ".env.example (VAULT_*, KEYCLOAK_* variables)"
+      - "config/vault/README.md"
+    dependencies: []
+    complexity: "Medium"
+    effort_hours: 4
+    verification_command: |
+      # Verify Vault OIDC auth method enabled
+      vault auth list | grep -c oidc && \
+      # Verify Keycloak OIDC client
+      curl -s http://localhost:8080/auth/admin/realms/master/clients | jq '.[] | select(.clientId=="vault")' && \
+      # Test OIDC flow
+      curl -X GET http://localhost:8200/v1/auth/oidc/oidc/authorize
+    notes: |
+      - Requires Vault CLI access inside vault container
+      - Keycloak realm must be pre-created
+      - Consider using Keycloak's role-based access control (RBAC)
+      - Token audience should be vault URI
+
+  - id: "P1-005"
+    title: "Deploy OPA Server and Load Authorization Policies"
+    domain: "Domain 5 - Identity & Access Management"
+    issue: |
+      OPA (Open Policy Agent) configuration exists in /config/opa but service
+      not deployed. Authorization policies not enforced. All access currently uncontrolled.
+    description: |
+      Deploy OPA as a standalone service for policy enforcement across the platform.
+      Evaluates authorization decisions for agents, tools, and resources.
+      Provides centralized policy management and audit logging.
+    location: |
+      /home/user/ros2-humble-env/docker/docker-compose.identity.yml or
+      /home/user/ros2-humble-env/docker-compose.opa.yml (NEW)
+      /home/user/ros2-humble-env/config/opa/policies/
+    impact: |
+      - No authorization enforcement (everyone has access)
+      - Agent isolation not implemented
+      - Tool access uncontrolled
+      - No audit trail for policy decisions
+      - Breaks compliance requirements (cannot demonstrate access control)
+    acceptance_criteria:
+      - "OPA service deployed in docker-compose with port 8181"
+      - "OPA policies loaded from /config/opa/policies/"
+      - "authz.rego evaluated for all API requests"
+      - "OPA data API available for bundle management"
+      - "Prometheus metrics exported from OPA"
+      - "Kong/AgentGateway routing decisions through OPA"
+      - "Audit log records all policy decisions"
+    files_to_modify:
+      - "docker-compose.opa.yml (NEW)"
+      - "config/opa/policies/authz.rego"
+      - "config/opa/policies/rate-limit.rego (NEW)"
+      - "config/opa/policies/audit.rego (NEW)"
+      - "config/opa/data/roles.json (NEW)"
+      - "docker/docker-compose.edge.yml (add OPA validation step)"
+      - ".env.example (OPA_* variables)"
+      - "config/opa/README.md"
+    dependencies:
+      - "Configure gateway authentication (P1-003)"
+    complexity: "Medium"
+    effort_hours: 3
+    verification_command: |
+      # Verify OPA service running
+      docker-compose -f docker-compose.opa.yml up -d && \
+      curl -s http://localhost:8181/health | jq '.result.ready' && \
+      # Verify policy loaded
+      curl -s http://localhost:8181/v1/policies/ros2/authz | grep "ros2.authz" && \
+      # Test policy evaluation
+      curl -X POST http://localhost:8181/v1/data/ros2/authz/allow \
+        -H "Content-Type: application/json" \
+        -d '{"input":{"user":{"role":"admin"}}}'
+    notes: |
+      - Start with minimal authz.rego, expand as needed
+      - Implement rate limiting and audit policies
+      - Consider OPA bundles for policy distribution
+      - Plan for policy versioning and rollback
+
+  - id: "P1-006"
+    title: "Fix Sandbox-Runtime (Build from Source)"
+    domain: "Domain 2 - MCP Layer (Tools & Sandboxing)"
+    issue: |
+      Sandbox-runtime currently depends on npx fallback. No local build capability.
+      Package maintenance risk: relies on npm registry availability at runtime.
+    description: |
+      Build sandbox-runtime from source in Nix flake instead of relying on npx.
+      Improves reproducibility, offline capability, and reduces external dependencies.
+      Ensures deterministic deployment across environments.
+    location: |
+      /home/user/ros2-humble-env/flake.nix
+      /home/user/ros2-humble-env/modules/common/tools/sandbox-runtime.nix (NEW)
+    impact: |
+      - Runtime dependency on npm registry (network failure risk)
+      - Non-reproducible builds (npx may fetch different versions)
+      - Slow first-run startup (npx needs to download)
+      - Cannot use in offline environments
+      - Security risk: npm registry could be compromised
+    acceptance_criteria:
+      - "sandbox-runtime built from source as Nix package"
+      - "Binary available in devShell via nix develop"
+      - "Version pinned to specific release"
+      - "Works without network access"
+      - "Faster startup than npx (cached in Nix store)"
+      - "Integration test validates sandbox restrictions"
+      - "Documentation updated on how to use sandbox-runtime"
+    files_to_modify:
+      - "flake.nix"
+      - "modules/common/tools/sandbox-runtime.nix (NEW)"
+      - "modules/common/ai/default.nix"
+      - "README.md (Sandboxing section)"
+    dependencies: []
+    complexity: "Small"
+    effort_hours: 2
+    verification_command: |
+      # Verify sandbox-runtime available
+      which sandbox-runtime && \
+      sandbox-runtime --version && \
+      # Test sandbox restrictions
+      sandbox-runtime sh -c "echo hello > /tmp/test.txt" && \
+      # Verify file restrictions enforced
+      ! [ -f /tmp/test.txt ]
+    notes: |
+      - Check @anthropic-ai/sandbox-runtime GitHub for source
+      - May need to add buildInputs (deno? node?)
+      - Consider if sandbox-runtime is actually a Deno/Node package
+      - Alternative: Use existing containerized sandbox approach
+
+  - id: "P1-007"
+    title: "Fix genai-toolbox Nix Hashes"
+    domain: "Domain 8 - Database & Tool Integration"
+    issue: |
+      genai-toolbox module uses placeholder hashes (lib.fakeHash).
+      Build will fail with hash mismatch. Actual hashes must be computed.
+    description: |
+      The genai-toolbox.nix module contains fakeHash placeholder that needs
+      replacement with actual sha256 hashes from Go build. Enables proper
+      caching and reproducible builds in Nix.
+    location: "/home/user/ros2-humble-env/modules/common/ai/genai-toolbox.nix"
+    impact: |
+      - Package cannot be built (fakeHash rejection)
+      - Blocks Nix flake checks
+      - Breaks CI/CD pipeline
+      - genai-toolbox unavailable for MCP database access
+    acceptance_criteria:
+      - "src.hash updated with correct sha256"
+      - "vendorHash updated with correct Go vendor hash"
+      - "nix flake check passes"
+      - "Package successfully builds: nix build"
+      - "Binary available after build: result/bin/mcp-toolbox"
+    files_to_modify:
+      - "modules/common/ai/genai-toolbox.nix"
+    dependencies: []
+    complexity: "Trivial"
+    effort_hours: 1
+    verification_command: |
+      cd /home/user/ros2-humble-env && \
+      nix flake check && \
+      nix build .#genai-toolbox && \
+      ./result/bin/mcp-toolbox --version
+    notes: |
+      - Run build once with fakeHash to get correct hash from error message
+      - Replace both src.hash and vendorHash
+      - Consider pinning to specific version tag
+      - Test with multiple platforms if possible
+
+  - id: "P1-008"
+    title: "Download LocalAI Language Models"
+    domain: "Domain 9 - Inference Engine (LocalAI)"
+    issue: |
+      LocalAI container defined but no models pre-loaded. Models directory empty.
+      Service starts without inferencing capability. Users must manually download.
+    description: |
+      Pre-download commonly used GGUF models into data/localai/models/.
+      Includes base models for inference testing and development.
+      Reduces first-run latency and ensures reproducible setups.
+    location: |
+      /home/user/ros2-humble-env/data/localai/models/
+      /home/user/ros2-humble-env/docker/docker-compose.localai.yml (usage docs)
+    impact: |
+      - LocalAI cannot serve inference requests (no models)
+      - Blocks LLM evaluation (P1-001)
+      - AgentGateway has no inference capability
+      - Development startup requires manual model downloads
+      - First deployment takes hours (downloading models)
+    acceptance_criteria:
+      - "Minimum 2 GGUF models downloaded for testing"
+      - "Models stored in data/localai/models/"
+      - "Models directory in .gitignore (too large)"
+      - "README with model download instructions"
+      - "Script added: scripts/download-localai-models.sh"
+      - "LocalAI health check passes with loaded models"
+    files_to_modify:
+      - "data/localai/models/ (create if missing)"
+      - "scripts/download-localai-models.sh (NEW)"
+      - "docker/docker-compose.localai.yml (add usage docs)"
+      - ".gitignore (data/localai/models/)"
+      - "README.md (LocalAI Models section)"
+    complexity: "Small"
+    effort_hours: 1
+    verification_command: |
+      # Verify models downloaded
+      ls -lh data/localai/models/*.gguf | wc -l && \
+      # Start LocalAI and verify
+      docker-compose -f docker/docker-compose.localai.yml up -d && \
+      sleep 10 && \
+      curl -s http://localhost:8080/v1/models | jq '.data | length'
+    notes: |
+      - Suggested models:
+        - mistral-7b-instruct (7B, fast)
+        - neural-chat-7b (7B, good for instructions)
+        - llama2-7b-chat (7B, general purpose)
+      - Model sizes: 3-5GB each (adjust MODELS_PATH volume)
+      - Consider parallel downloads with aria2c or similar
+
+  - id: "P1-009"
+    title: "Standardize PostgreSQL to Version 17.2"
+    domain: "Domain 10 - Data Persistence (PostgreSQL)"
+    issue: |
+      Multiple docker-compose files reference postgres:17.2-alpine inconsistently.
+      Some services may use different versions. Standardization needed for compatibility.
+    description: |
+      Ensure all PostgreSQL services across docker-compose files use postgres:17.2-alpine.
+      Creates consistent database environment across Kong, MLflow, Keycloak, n8n,
+      Temporal, and other services.
+    location: |
+      /home/user/ros2-humble-env/docker/docker-compose.*.yml (all files with postgres)
+    impact: |
+      - Version inconsistency causes compatibility issues
+      - Data migration complexity if upgrading incrementally
+      - Inconsistent security patches
+      - Unpredictable behavior in multi-service scenarios
+    acceptance_criteria:
+      - "All postgres services use postgres:17.2-alpine"
+      - "Data directory paths consistent"
+      - "Environment variables standardized (POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB)"
+      - "Health check probes identical across services"
+      - "Migration guides documented for version upgrades"
+      - "Backup strategy verified"
+    files_to_modify:
+      - "docker/docker-compose.edge.yml (kong-database)"
+      - "docker/docker-compose.llmops.yml (mlflow-db)"
+      - "docker/docker-compose.identity.yml (keycloak-db if present)"
+      - "docker/docker-compose.data.yml (all data services)"
+      - "docker/docker-compose.automation.yml (n8n-db if present)"
+      - "docker/docker-compose.temporal.yml (temporal-db if present)"
+    dependencies: []
+    complexity: "Trivial"
+    effort_hours: 1
+    verification_command: |
+      # Verify all postgres services use 17.2-alpine
+      grep -r "postgres:" docker/docker-compose*.yml | \
+      grep -v "17.2-alpine" | wc -l && \
+      # Should output 0 if all are standardized
+      echo "All PostgreSQL services standardized to 17.2-alpine"
+    notes: |
+      - Simple string replacement across compose files
+      - No data migration needed if upgrading from 17.x
+      - Ensure 17.2-alpine tag exists in Docker registry
+      - Consider pinning to specific patch version
+
+  - id: "P1-010"
+    title: "Document Python Dual-Environment Design"
+    domain: "Domain 1 - Host OS & Development Environment"
+    issue: |
+      Python dual-environment (Nix + Pixi) not documented. Users unclear on
+      when to use which environment. ROS packages vs. tool packages confusion.
+    description: |
+      Create comprehensive documentation explaining Python environment strategy:
+      1. Nix environment: System-level tools (flake, IDE, devOps)
+      2. Pixi environment: ROS packages and scientific Python (conda-forge, robostack)
+      3. When to use each, how they integrate, conflict resolution
+    location: |
+      /home/user/ros2-humble-env/docs/PYTHON-ENVIRONMENTS.md (NEW)
+      /home/user/ros2-humble-env/.claude/skills/python-environments/SKILL.md (NEW)
+    impact: |
+      - Users install packages in wrong environment
+      - Version conflicts between Nix and Pixi Python
+      - Broken development workflows
+      - Slow onboarding for new team members
+      - Difficult debugging of environment issues
+    acceptance_criteria:
+      - "PYTHON-ENVIRONMENTS.md created with comprehensive guide"
+      - "Explains Nix vs Pixi split clearly with examples"
+      - "Troubleshooting section for common conflicts"
+      - "Migration guide for adding Python packages"
+      - "Decision tree: when to use Nix vs Pixi"
+      - "Example workflows for ROS development"
+      - "Skill documentation in .claude/skills/python-environments/"
+    files_to_modify:
+      - "docs/PYTHON-ENVIRONMENTS.md (NEW)"
+      - ".claude/skills/python-environments/SKILL.md (NEW)"
+      - "README.md (link to new documentation)"
+      - "pixi.toml (comments updated)"
+      - "flake.nix (comments updated)"
+      - ".envrc (comments explaining environment setup)"
+    dependencies: []
+    complexity: "Trivial"
+    effort_hours: 1
+    verification_command: |
+      # Verify documentation exists
+      [ -f docs/PYTHON-ENVIRONMENTS.md ] && \
+      [ -f .claude/skills/python-environments/SKILL.md ] && \
+      grep -q "pixi\|nix" docs/PYTHON-ENVIRONMENTS.md && \
+      echo "Python environments documentation complete"
+    notes: |
+      - Include architecture diagram if possible
+      - Provide pip install vs pixi add examples
+      - Explain direnv activation and environment variables
+      - Include debugging section for environment conflicts
+
+volumes:
+  summary:
+    total_p1_tasks: 10
+    total_effort_hours: 19
+    priority_breakdown:
+      critical: 3  # P1-003, P1-004, P1-005 (security/auth)
+      high: 4      # P1-001, P1-002, P1-006, P1-008 (functionality)
+      medium: 2    # P1-007, P1-009 (compatibility)
+      documentation: 1  # P1-010
+    domain_coverage:
+      domain_1: ["P1-010"]  # Host OS
+      domain_2: ["P1-006"]  # MCP/Sandboxing
+      domain_4: ["P1-002", "P1-003"]  # Agent Gateway
+      domain_5: ["P1-004", "P1-005"]  # Identity & Access
+      domain_8: ["P1-007"]  # Database & Tools
+      domain_9: ["P1-008"]  # Inference
+      domain_10: ["P1-009"]  # Data Persistence
+      domain_12: ["P1-001"]  # LLM Evaluation
+
+context:
+  audit_reference: "ARIA v2.2.0 Multi-Agent Audit (Jan 2026)"
+  framework: "BUILDKIT_STARTER_SPEC.md"
+  architecture_layers_affected:
+    - "Layer 3: Isolation (sandbox-runtime)"
+    - "Layer 5: Orchestration (agent-gateway)"
+    - "Layer 6: Identity (vault, keycloak, opa)"
+    - "Layer 8: Tool Execution (genai-toolbox)"
+    - "Layer 9: Inference (localai)"
+  success_criteria: "All 10 P1 tasks completed within 19 hours, verified by acceptance tests"

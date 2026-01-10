@@ -1,0 +1,547 @@
+# ARIA Task Specifications - P2 (Medium) & P3 (Low) Priority Items
+# Generated from ARIA v2.2.0 Audit Findings
+# Date: 2026-01-10
+# This file contains actionable task specifications for audit gap remediation
+
+tasks:
+
+# ========================================================================
+# P2 - MEDIUM PRIORITY TASKS (6 items, 30 hours estimated total)
+# ========================================================================
+
+  - id: "P2-001"
+    title: "Integrate sandbox-runtime for untrusted agents"
+    domain: "Domain 2 - Agent Sandboxing & Isolation"
+    priority: "P2"
+    issue: "Untrusted agent code requires runtime sandboxing to prevent resource exhaustion and security breaches"
+    location: "flake.nix, modules/linux/docker.nix, manifests/agent-isolation/"
+    impact: |
+      Prevents malicious or poorly-written agents from:
+      - Consuming excessive CPU/memory resources
+      - Accessing unauthorized file system locations
+      - Interfering with other agent operations
+      - Executing dangerous system calls
+    acceptance_criteria:
+      - "gVisor OCI runtime is configured and available in development environment"
+      - "Sandbox profile template created with CPU/memory/network limits"
+      - "Docker/Podman configured to use gVisor for untrusted agent containers"
+      - "Documentation created for sandbox configuration and deployment"
+      - "Test verification that resource limits are enforced"
+      - "Integration with AGiXT agent execution verified"
+    files_to_modify:
+      - "flake.nix (add gVisor configuration, if needed)"
+      - "modules/linux/docker.nix (add sandbox runtime config)"
+      - "manifests/agent-isolation/sandbox-profile.yaml (create new)"
+      - "manifests/agent-isolation/README.md (create new)"
+      - "docs/SANDBOXING.md (create new)"
+    files_to_create:
+      - "manifests/agent-isolation/docker-compose.sandbox.yml"
+      - "manifests/agent-isolation/policies/resource-limits.yaml"
+      - "scripts/setup-sandbox-runtime.sh"
+    complexity: "Medium"
+    effort_hours: 8
+    dependencies: []
+    tags: ["security", "docker", "isolation", "runtime"]
+    acceptance_tests:
+      - "gVisor runtime available: gvisor --version"
+      - "Sandbox container can be created and run"
+      - "Resource limits are enforced (verify with 'docker stats')"
+      - "Untrusted code cannot access host filesystem"
+    related_issues:
+      - "BUILDKIT_STARTER_SPEC.md Section 2.4"
+      - "Domain 2 - Agent Sandboxing"
+
+  - id: "P2-002"
+    title: "Configure NATS JetStream for distributed messaging"
+    domain: "Domain 6 - Distributed Messaging & Event Bus"
+    priority: "P2"
+    issue: "NATS pub/sub lacks persistence and ordering guarantees needed for reliable event sourcing"
+    location: "manifests/distributed/nats/, modules/common/nix/default.nix, config/nats/"
+    impact: |
+      Enables:
+      - Persistent message queue with replay capability
+      - At-least-once delivery guarantees
+      - Consumer groups for load balancing
+      - Message deduplication
+      - Cross-site replication for disaster recovery
+    acceptance_criteria:
+      - "JetStream server deployed and accessible"
+      - "Stream configuration for event-bus topics created"
+      - "Consumer groups configured for agent workloads"
+      - "Retention policies (TTL and size-based) defined"
+      - "Monitoring and alerting configured for JetStream"
+      - "Documentation of JetStream architecture and operations created"
+      - "Publish/subscribe test suite passes"
+    files_to_modify:
+      - "pixi.toml (verify nats-py, temporalio versions)"
+      - "manifests/distributed/nats/server.conf (create/enhance)"
+      - "config/nats/jetstream-config.yaml (create new)"
+      - "manifests/observability/prometheus.yml (add NATS scrape config)"
+    files_to_create:
+      - "manifests/distributed/nats/README.md"
+      - "manifests/distributed/nats/docker-compose.yml"
+      - "config/nats/subjects-topology.yaml"
+      - "scripts/verify-jetstream.sh"
+      - "docs/NATS_ARCHITECTURE.md"
+    complexity: "Medium"
+    effort_hours: 4
+    dependencies: []
+    tags: ["messaging", "nats", "jetstream", "distributed"]
+    acceptance_tests:
+      - "NATS server running: nats server info"
+      - "JetStream enabled: nats stream list"
+      - "Consumer created: nats consumer list <stream>"
+      - "Message persists and replays: nats pub/sub test"
+    related_issues:
+      - "BUILDKIT_STARTER_SPEC.md Section 6 - Messaging Layer"
+      - "Domain 6 - Distributed Event Bus"
+
+  - id: "P2-003"
+    title: "Implement Holochain zomes (WASM) for distributed coordination"
+    domain: "Domain 11 - Coordination (Holochain)"
+    priority: "P2"
+    issue: "Holochain DNA scaffolding is complete but zomes lack implementation for actual distributed consensus and state management"
+    location: "manifests/holochain/dnas/*/zomes/, rust/Cargo.toml, rust/src/lib.rs"
+    impact: |
+      Enables:
+      - Distributed capability registry for agent discovery
+      - Resource allocation and scheduling across nodes
+      - Distributed OPA policy caching with consensus
+      - IPFS artifact provenance tracking
+      - Vector DB partition coordination
+    acceptance_criteria:
+      - "All 5 DNA integrity zomes implemented with entry type validation"
+      - "Coordinator zome functions implemented for CRUD operations"
+      - "WASM compilation successful for all zomes"
+      - "DNA packages generated with correct hashes"
+      - "Integration tests pass for inter-zome communication"
+      - "Conductor configuration updated with all DNAs"
+      - "Documentation includes zome function reference"
+      - "All zomes deployed to test network"
+    files_to_modify:
+      - "manifests/holochain/dnas/agent_registry/zomes/*/src/lib.rs"
+      - "manifests/holochain/dnas/resource_mesh/zomes/*/src/lib.rs"
+      - "manifests/holochain/dnas/policy_store/zomes/*/src/lib.rs"
+      - "manifests/holochain/dnas/artifact_index/zomes/*/src/lib.rs"
+      - "manifests/holochain/dnas/memory_shards/zomes/*/src/lib.rs"
+      - "manifests/holochain/conductor.yaml (update DNA hashes)"
+      - "rust/Cargo.toml (ensure Holochain deps are correct)"
+    files_to_create:
+      - "manifests/holochain/dnas/*/zomes/*/Cargo.toml"
+      - "manifests/holochain/ZOME_REFERENCE.md"
+      - "scripts/build-holochain-dnas.sh"
+      - "tests/holochain/integration_tests.rs"
+    complexity: "Large"
+    effort_hours: 16
+    dependencies: []
+    tags: ["holochain", "wasm", "zomes", "coordination", "rust"]
+    acceptance_tests:
+      - "All zomes compile to WASM: cargo build --release --target wasm32-unknown-unknown"
+      - "DNA packages created: ls manifests/holochain/dnas/*/workdir/*.dna"
+      - "Conductor starts with all DNAs: holochain -c manifests/holochain/conductor.yaml"
+      - "Zome functions callable via admin interface"
+    implementation_phases:
+      - "Phase 1: Define entry types and validation logic (2-3 weeks)"
+      - "Phase 2: Implement CRUD and query functions (3-4 weeks)"
+      - "Phase 3: WASM compilation and DNA packaging (1 week)"
+      - "Phase 4: Conductor integration and testing (1-2 weeks)"
+      - "Phase 5: Service bridge integration (2-3 weeks)"
+    related_issues:
+      - "BUILDKIT_STARTER_SPEC.md Section 9.7"
+      - "manifests/holochain/IMPLEMENTATION_SUMMARY.md"
+      - "Domain 11 - Coordination (Holochain)"
+
+  - id: "P2-004"
+    title: "Install Node.js agent frameworks (claude-flow, agentic-flow)"
+    domain: "Domain 7 - Agent Frameworks & Runtimes"
+    priority: "P2"
+    issue: "Node.js-based agent frameworks (agentic-flow, claude-flow) not integrated despite pixi.toml noting their unavailability"
+    location: "pixi.toml, flake.nix, modules/common/packages.nix, package.json"
+    impact: |
+      Enables:
+      - Multi-language agent development (TypeScript/JavaScript)
+      - Integration with agentic-flow distributed execution
+      - Claude-flow workflow composition
+      - Node.js WebSocket and async/await agent patterns
+    acceptance_criteria:
+      - "Node.js LTS available via Nix flake (22.x verified)"
+      - "pnpm package manager configured and available"
+      - "package.json created with claude-flow and agentic-flow dependencies"
+      - "Both frameworks installed and importable"
+      - "Example agent created using each framework"
+      - "Documentation for Node.js agent development created"
+      - "Integration tests pass for framework imports"
+    files_to_modify:
+      - "flake.nix (verify nodejs package)"
+      - "modules/common/packages.nix (add pnpm, if needed)"
+      - "pixi.toml (update comments about Node.js installation)"
+    files_to_create:
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "docs/NODE_JS_AGENTS.md"
+      - "examples/agent-nodejs-example/agent.ts"
+      - "scripts/setup-nodejs-agents.sh"
+    complexity: "Small"
+    effort_hours: 2
+    dependencies: []
+    tags: ["nodejs", "agents", "frameworks", "javascript"]
+    acceptance_tests:
+      - "Node.js available: node --version"
+      - "pnpm available: pnpm --version"
+      - "claude-flow importable: npm list @ruvnet/claude-flow"
+      - "agentic-flow importable: npm list @ruvnet/agentic-flow"
+      - "Example agent runs: npx ts-node examples/agent-nodejs-example/agent.ts"
+    related_issues:
+      - "pixi.toml lines 84-92"
+      - "BUILDKIT_STARTER_SPEC.md Section 7 - Agent Frameworks"
+      - "Domain 7 - Agent Frameworks & Runtimes"
+
+  - id: "P2-005"
+    title: "Enable mTLS on all services"
+    domain: "Domain 5 - Service Security & mTLS"
+    priority: "P2"
+    issue: "Services lack mutual TLS configuration, exposing agent-to-service communication to MITM attacks"
+    location: "config/step-ca/, manifests/security/, docker-compose.yml, kubernetes manifests"
+    impact: |
+      Provides:
+      - Mutual authentication between all services and agents
+      - Encrypted service-to-service communication
+      - Certificate lifecycle management via Step CA
+      - Automated certificate rotation
+      - Compliance with zero-trust architecture
+    acceptance_criteria:
+      - "Step CA configured and operational for certificate management"
+      - "mTLS enabled on all critical services (NATS, Temporal, Holochain)"
+      - "Service certificate templates created for automated issuance"
+      - "Certificate rotation automated with 90-day validity"
+      - "Kubernetes ServiceMonitor created for mTLS monitoring"
+      - "All client connections verify server certificates"
+      - "Documentation created for certificate lifecycle"
+      - "mTLS connectivity test suite passes"
+    files_to_modify:
+      - "config/step-ca/ca.json (update trust anchors)"
+      - "config/step-ca/defaults.json (add mTLS policies)"
+      - "config/agentgateway/config.yaml (add TLS cert paths)"
+      - "manifests/temporal/development.yaml (add mTLS config)"
+      - "manifests/holochain/conductor.yaml (add cert config)"
+      - "docker/docker-compose.yml (add cert volumes and TLS env)"
+    files_to_create:
+      - "manifests/security/mtls-policy.yaml"
+      - "manifests/security/certificate-profiles.yaml"
+      - "manifests/security/service-certificates.yaml"
+      - "scripts/setup-mtls.sh"
+      - "docs/MTLS_ARCHITECTURE.md"
+    complexity: "Medium"
+    effort_hours: 4
+    dependencies: []
+    tags: ["security", "tls", "mtls", "certificates", "step-ca"]
+    acceptance_tests:
+      - "Step CA running: step ca health"
+      - "Service certificates issued: step certificate inspect <cert>"
+      - "TLS connection verified: openssl s_client -cert <cert> -key <key> -connect <service>:443"
+      - "Kubernetes service enforces mTLS"
+    related_issues:
+      - "BUILDKIT_STARTER_SPEC.md Section 5 - Service Security"
+      - "Domain 5 - Service Security & mTLS"
+      - "config/step-ca/README.md"
+
+  - id: "P2-006"
+    title: "Create Grafana dashboards for ROS2 metrics"
+    domain: "Domain 14 - Observability & Monitoring"
+    priority: "P2"
+    issue: "ROS2-specific metrics (node communication, DDS middleware, resource usage) lack Grafana visualizations"
+    location: "config/grafana/provisioning/dashboards/, manifests/observability/"
+    impact: |
+      Enables:
+      - Real-time visibility into ROS2 node topology and communication
+      - DDS middleware metrics (discovery, subscriptions, latency)
+      - Resource utilization per ROS2 node (CPU, memory, network)
+      - Anomaly detection for stalled topics or nodes
+      - Performance trending and capacity planning
+    acceptance_criteria:
+      - "Grafana dashboard created for ROS2 node overview"
+      - "DDS discovery and middleware metrics displayed"
+      - "Per-node CPU, memory, and network usage graphs"
+      - "Topic publish/subscribe rate and latency metrics"
+      - "Dashboard template variables for filtering by namespace"
+      - "Alert rules configured for critical metrics (e.g., node timeout)"
+      - "Dashboard provisioned automatically on Grafana startup"
+      - "Documentation created for dashboard interpretation"
+    files_to_modify:
+      - "config/grafana/provisioning/dashboards/default.yml (add ROS2 dashboard)"
+      - "manifests/observability/prometheus.yml (add ROS2 node scrape configs)"
+    files_to_create:
+      - "config/grafana/provisioning/dashboards/ros2-overview.json"
+      - "config/grafana/provisioning/dashboards/ros2-dds-metrics.json"
+      - "config/grafana/provisioning/dashboards/ros2-node-resources.json"
+      - "docs/ROS2_DASHBOARDS.md"
+      - "scripts/export-grafana-dashboards.sh"
+    complexity: "Medium"
+    effort_hours: 4
+    dependencies: []
+    tags: ["grafana", "ros2", "monitoring", "observability", "dashboards"]
+    acceptance_tests:
+      - "Grafana running: curl http://localhost:3000/api/health"
+      - "ROS2 dashboards visible in Grafana UI"
+      - "Metrics data populated from Prometheus"
+      - "Dashboard filters work correctly"
+      - "Alert rules trigger on threshold violation"
+    related_issues:
+      - "BUILDKIT_STARTER_SPEC.md Section 14 - Observability"
+      - "Domain 14 - Observability & Monitoring"
+      - "config/grafana/"
+
+# ========================================================================
+# P3 - LOW PRIORITY TASKS (4 items, 12 hours estimated total)
+# ========================================================================
+
+  - id: "P3-001"
+    title: "Add vCache semantic prompt caching for reduced latency and costs"
+    domain: "Domain 10 - Caching & State"
+    priority: "P3"
+    issue: "LLM requests lack semantic caching, causing unnecessary API calls and costs"
+    location: "pixi.toml (caching feature), docs/, examples/"
+    impact: |
+      Benefits:
+      - Reduce LLM latency by up to 100x for cached queries
+      - Reduce API costs by up to 10x
+      - Semantic equivalence matching (not just string matching)
+      - User-defined error rate bounds with guarantees
+    acceptance_criteria:
+      - "vCache repository cloned and built"
+      - "vCache Python environment configured in pixi (caching feature)"
+      - "Redis backend configured for cache storage"
+      - "Example script created showing cache usage patterns"
+      - "Cache hit/miss metrics collected and monitored"
+      - "Documentation created for vCache integration"
+      - "Integration tests verify cache effectiveness"
+    files_to_modify:
+      - "pixi.toml (enhance caching feature with vCache instructions)"
+      - "manifests/observability/prometheus.yml (add cache metrics)"
+    files_to_create:
+      - "docs/VCACHE_SETUP.md"
+      - "examples/llm-caching-example.py"
+      - "manifests/caching/vcache-config.yaml"
+      - "scripts/setup-vcache.sh"
+    complexity: "Small"
+    effort_hours: 4
+    dependencies: []
+    tags: ["caching", "llm", "vcache", "performance"]
+    acceptance_tests:
+      - "vCache installed: pip show vcache"
+      - "Redis running for cache backend"
+      - "Cache hit detected on repeated queries"
+      - "Metrics show cost reduction"
+    notes: |
+      vCache is not yet available on PyPI. Installation requires:
+      git clone https://github.com/vcache-project/vCache.git
+      cd vCache && pip install -e .
+    related_issues:
+      - "pixi.toml lines 302-344"
+      - "BUILDKIT_STARTER_SPEC.md Section 10 - State & Storage"
+      - "Domain 10 - Caching & State"
+
+  - id: "P3-002"
+    title: "Configure Bytebase for database CI/CD and schema management"
+    domain: "Domain 9 - Data Management & Migration"
+    priority: "P3"
+    issue: "Database schema changes lack version control, collaboration, and audit trail"
+    location: "manifests/database/, config/bytebase/"
+    impact: |
+      Enables:
+      - Git-based database schema versioning
+      - Pull request workflow for schema changes
+      - Automated migration rollback capability
+      - Multi-environment promotion (dev → staging → prod)
+      - Schema change audit logs and approvals
+    acceptance_criteria:
+      - "Bytebase deployed and accessible"
+      - "Bytebase connected to project PostgreSQL instances"
+      - "GitOps integration configured for schema repositories"
+      - "Schema change workflow documented (PR → approval → apply)"
+      - "Example schema migration created and applied"
+      - "Rollback procedures tested"
+      - "Documentation created for database team"
+    files_to_modify:
+      - "docker/docker-compose.yml (add Bytebase service)"
+    files_to_create:
+      - "manifests/database/bytebase-deployment.yaml"
+      - "manifests/database/schema-repository.yaml"
+      - "config/bytebase/README.md"
+      - "docs/BYTEBASE_WORKFLOW.md"
+      - "scripts/setup-bytebase.sh"
+    complexity: "Small"
+    effort_hours: 4
+    dependencies: []
+    tags: ["database", "ci/cd", "schema", "migration", "bytebase"]
+    acceptance_tests:
+      - "Bytebase running: curl http://localhost:8080"
+      - "Database connected in Bytebase UI"
+      - "Schema change PR created and approved"
+      - "Migration applied successfully"
+    related_issues:
+      - "BUILDKIT_STARTER_SPEC.md Section 9 - Data Management"
+      - "Domain 9 - Data Management & Migration"
+
+  - id: "P3-003"
+    title: "Deploy own Holochain bootstrap and signal servers"
+    domain: "Domain 11 - Coordination (Holochain)"
+    priority: "P3"
+    issue: "Holochain agents rely on public Holo infrastructure for bootstrap and signaling; self-hosting enables offline operation"
+    location: "manifests/holochain/bootstrap/, infrastructure/holochain/"
+    impact: |
+      Benefits:
+      - Offline-capable Holochain network operation
+      - Independence from Holo infrastructure dependencies
+      - Private network deployments for confidential use cases
+      - Reduced latency for local networks
+      - Full control over network governance
+    acceptance_criteria:
+      - "Bootstrap server binary obtained or compiled"
+      - "Signal server binary obtained or compiled"
+      - "Docker/Kubernetes manifests created for deployment"
+      - "Configuration for agent connections documented"
+      - "Test agents successfully connect to custom servers"
+      - "Monitoring and logging configured"
+      - "Documentation created for operations"
+    files_to_modify:
+      - "manifests/holochain/networks.json (add custom bootstrap servers)"
+      - "manifests/holochain/conductor.yaml (update network config)"
+    files_to_create:
+      - "manifests/holochain/bootstrap/docker-compose.yml"
+      - "manifests/holochain/bootstrap/bootstrap-config.yaml"
+      - "manifests/holochain/bootstrap/signal-config.yaml"
+      - "infrastructure/holochain/terraform/bootstrap.tf"
+      - "docs/HOLOCHAIN_BOOTSTRAP.md"
+      - "scripts/deploy-holochain-bootstrap.sh"
+    complexity: "Medium"
+    effort_hours: 4
+    dependencies: ["P2-003"]
+    tags: ["holochain", "bootstrap", "networking", "infrastructure"]
+    acceptance_tests:
+      - "Bootstrap server running and responding to requests"
+      - "Signal server accepting WebRTC signaling messages"
+      - "Agents successfully register and connect via custom servers"
+      - "Network peers discover each other via bootstrap server"
+    related_issues:
+      - "BUILDKIT_STARTER_SPEC.md Section 9.7"
+      - "manifests/holochain/HOLOCHAIN.md Section 3.2"
+      - "Domain 11 - Coordination (Holochain)"
+
+  - id: "P3-004"
+    title: "Add distributed tracing (Jaeger/Tempo) for end-to-end visibility"
+    domain: "Domain 14 - Observability & Monitoring"
+    priority: "P3"
+    issue: "Agent execution traces lack end-to-end visibility across service boundaries"
+    location: "manifests/observability/, config/otel-collector.yaml"
+    impact: |
+      Provides:
+      - End-to-end distributed traces of agent execution
+      - Cross-service dependency visualization
+      - Latency analysis per service hop
+      - Error and exception tracking with context
+      - Flame graphs for performance analysis
+    acceptance_criteria:
+      - "Jaeger or Tempo backend deployed"
+      - "OpenTelemetry SDK integrated into agents and services"
+      - "Trace collection and export configured"
+      - "Sampling policies configured (e.g., 10% of traces)"
+      - "Service integrations instrumented (NATS, Holochain, AGiXT)"
+      - "Jaeger/Tempo UI accessible with sample traces"
+      - "Documentation created for trace interpretation"
+    files_to_modify:
+      - "manifests/observability/otel-collector.yaml (enhance config)"
+      - "pixi.toml (add opentelemetry packages to llmops feature)"
+      - "config/prometheus/prometheus.yml (add tracing scrape config)"
+    files_to_create:
+      - "manifests/observability/jaeger-deployment.yaml"
+      - "manifests/observability/tempo-deployment.yaml"
+      - "config/otel-collector/jaeger-config.yaml"
+      - "docs/DISTRIBUTED_TRACING.md"
+      - "examples/tracing-example.py"
+      - "scripts/setup-distributed-tracing.sh"
+    complexity: "Medium"
+    effort_hours: 4
+    dependencies: []
+    tags: ["observability", "tracing", "jaeger", "tempo", "otel"]
+    acceptance_tests:
+      - "Jaeger/Tempo running: curl http://localhost:16686"
+      - "OpenTelemetry SDK imported: python -c 'from opentelemetry import trace'"
+      - "Sample trace visible in Jaeger/Tempo UI"
+      - "Service dependencies displayed in trace graph"
+      - "Flame graph generated from trace data"
+    related_issues:
+      - "BUILDKIT_STARTER_SPEC.md Section 14 - Observability"
+      - "Domain 14 - Observability & Monitoring"
+      - "manifests/observability/"
+
+# ========================================================================
+# SUMMARY AND DEPENDENCIES
+# ========================================================================
+
+summary:
+  total_tasks: 10
+  p2_count: 6
+  p3_count: 4
+  total_effort_hours: 42
+  p2_effort_hours: 30
+  p3_effort_hours: 12
+
+dependency_graph:
+  # P2 tasks generally independent
+  P2-001: []  # Sandbox runtime - independent
+  P2-002: []  # NATS JetStream - independent
+  P2-003: []  # Holochain zomes - independent
+  P2-004: []  # Node.js agents - independent
+  P2-005: []  # mTLS - independent
+  P2-006: []  # Grafana dashboards - independent
+
+  # P3 tasks with dependencies
+  P3-001: []  # vCache - independent
+  P3-002: []  # Bytebase - independent
+  P3-003: ["P2-003"]  # Holochain bootstrap depends on zomes implementation
+  P3-004: []  # Distributed tracing - independent
+
+implementation_order_recommendation:
+  phase_1: ["P2-002", "P2-004", "P2-006"]  # Quick wins, foundational
+  phase_2: ["P2-001", "P2-005"]  # Security hardening
+  phase_3: ["P2-003"]  # Complex coordination layer
+  phase_4: ["P3-001", "P3-002", "P3-004"]  # Observability and caching
+  phase_5: ["P3-003"]  # Advanced Holochain deployment
+
+# ========================================================================
+# IMPLEMENTATION GUIDANCE
+# ========================================================================
+
+implementation_guidelines:
+  general:
+    - "Always read existing files before modifications"
+    - "Follow existing code style and conventions"
+    - "Create comprehensive documentation for each task"
+    - "Include test verification procedures"
+    - "Update BUILDKIT_STARTER_SPEC.md when applicable"
+    - "Commit with proper message format: feat/fix/docs: description"
+
+  before_starting_task:
+    - "Review related files listed in 'files_to_modify'"
+    - "Check dependencies graph for blocking tasks"
+    - "Read existing documentation in the domain"
+    - "Understand current implementation status"
+    - "Create GitHub issue for task tracking"
+
+  after_completing_task:
+    - "Run full test suite to verify no regressions"
+    - "Update documentation with implementation details"
+    - "Create commit with all changes"
+    - "Update task status in ARIA audit findings"
+    - "Create follow-up tasks if needed"
+
+quality_checklist:
+  - "Code follows project style guidelines"
+  - "Documentation is comprehensive and clear"
+  - "Tests pass (unit and integration)"
+  - "Backwards compatibility maintained (if applicable)"
+  - "Security review completed (for P2-001, P2-005)"
+  - "Performance tested (for P2-002, P3-001)"
+  - "Monitoring and logging configured"
+  - "Commit messages are descriptive"
