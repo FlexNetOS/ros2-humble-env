@@ -1,1 +1,0 @@
-scripts/VERIFICATION-P1-012-P1-013.sh

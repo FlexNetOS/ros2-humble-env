@@ -61,6 +61,18 @@ tools:
 | **0install** | `*.0install.xml` | Conflicts with Nix store |
 | **pyenv** | `.python-version` | Use pixi.toml Python version |
 | **nvm** | `.nvmrc` | Use pixi.toml or flake.nix Node.js |
+| **Symlinks** | `*` (type=symlink) | Causes Git/Windows/tooling issues |
+
+### Symlink Warning
+
+**Nix and Home-manager use symlinks by design:**
+- `~/.config/*` → `/nix/store/...-home-manager-files/...`
+- `~/.nix-profile` → `/nix/var/nix/profiles/...`
+
+If symlinks are unacceptable:
+- **For project configs**: Use actual files, not symlinks
+- **For user dotfiles**: Consider **chezmoi** instead of Home-manager
+- **For Nix itself**: No alternative - Nix fundamentally uses symlinks
 
 ## Responsibility Matrix
 

@@ -203,6 +203,23 @@ warn[msg] {
 }
 
 #############################################
+# RULE: No symlinks in repository
+# Rationale: Symlinks cause issues with Git, Windows, and some tools
+#############################################
+
+deny[msg] {
+    input.file_type == "symlink"
+    not startswith(input.file, ".pixi/")
+    not startswith(input.file, ".git/")
+    msg := sprintf("VIOLATION: Symlink detected at '%s'. Use actual files or update references.", [input.file])
+}
+
+warn[msg] {
+    input.tool == "home-manager"
+    msg := "NOTE: Home-manager uses symlinks by design. Consider chezmoi if symlinks are unacceptable."
+}
+
+#############################################
 # CHEZMOI + MISE EVALUATION TRIGGERS
 # If these conditions are met, consider alternatives
 #############################################

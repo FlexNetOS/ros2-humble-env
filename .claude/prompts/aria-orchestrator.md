@@ -288,15 +288,17 @@ ls *.html 2>/dev/null || echo "No .html at root"
 ls *.sh 2>/dev/null | grep -vE '^bootstrap' || echo "No extra .sh at root"
 find . -maxdepth 1 -name 'docker-compose*.yml' -type f || echo "No docker-compose files at root (good)"
 
-# Verify symlinks
-echo "=== SYMLINK VERIFICATION ==="
-find . -maxdepth 1 -type l -name 'docker-compose*' -exec sh -c 'echo "{} -> $(readlink {})"' \;
+# Detect symlinks (VIOLATION - no symlinks allowed)
+echo "=== SYMLINK DETECTION (SHOULD BE EMPTY) ==="
+find . -maxdepth 2 -type l ! -path './.git/*' ! -path './.pixi/*' && \
+  echo "VIOLATION: Symlinks detected!" || echo "OK: No symlinks"
 ```
 
 **Clutter Remediation Script**:
 ```bash
 #!/bin/bash
 # Move misplaced files to correct locations
+# NOTE: NO SYMLINKS - move files and update references instead
 
 # Move SPEC/REPORT/IMPLEMENTATION docs
 mv *_SPEC.md docs/ 2>/dev/null
@@ -309,13 +311,15 @@ mv *.html docs/ 2>/dev/null
 # Move verification scripts
 mv VERIFICATION-*.sh scripts/ 2>/dev/null
 
-# Move docker-compose files (if not already symlinks)
+# Move docker-compose files to docker/ (NO SYMLINKS)
 for f in docker-compose.*.yml; do
   if [ -f "$f" ] && [ ! -L "$f" ]; then
     mv "$f" docker/
-    ln -sf "docker/$f" "$f"
   fi
 done
+
+# Remove any existing symlinks at root
+find . -maxdepth 1 -type l -delete
 ```
 
 ---
@@ -718,12 +722,10 @@ ros2-humble-env/
 │   ├── adr/                    # Architecture decisions
 │   └── *.md                    # Guides & specs
 │
-├── docker/                     # 🐳 Docker Configs (actual files)
+├── docker/                     # 🐳 Docker Configs
 │   ├── docker-compose.agixt.yml
 │   ├── docker-compose.identity.yml
-│   └── ...
-│
-├── docker-compose.*.yml        # 🔗 Symlinks → docker/
+│   └── ...                     # All docker-compose files HERE (no root copies)
 │
 ├── config/                     # ⚙️ Application Configs
 │   ├── keycloak/
@@ -764,17 +766,21 @@ Files that should NOT be at root:
 | `*_SPEC.md` | `docs/` | Move |
 | `*_REPORT.md` | `docs/reports/` | Move |
 | `*_IMPLEMENTATION.md` | `docs/implementation/` | Move |
-| `docker-compose.*.yml` (files) | `docker/` | Move + symlink |
+| `docker-compose.*.yml` (files) | `docker/` | Move (NO symlinks) |
 | `*.html` (generated) | `docs/` | Move |
 | `VERIFICATION-*.sh` | `scripts/` | Move |
+| `* (symlink)` | N/A | **DELETE** - No symlinks allowed |
 
-### Symlink Verification
+### Symlink Detection (Should Be Empty)
 
-| Symlink | Target | Status |
-|---------|--------|--------|
-| `docker-compose.agixt.yml` | `docker/docker-compose.agixt.yml` | ✅ Valid |
-| `docker-compose.identity.yml` | `docker/docker-compose.identity.yml` | ✅ Valid |
-| ... | ... | ... |
+> **POLICY**: No symlinks allowed in repository (causes Git/Windows issues)
+
+| Check | Command | Expected |
+|-------|---------|----------|
+| Root symlinks | `find . -maxdepth 1 -type l` | Empty |
+| Repo symlinks | `find . -type l ! -path './.git/*' ! -path './.pixi/*'` | Empty |
+
+If symlinks found: **Delete them and update file references instead.**
 ```
 
 ### 1. Repository Census
