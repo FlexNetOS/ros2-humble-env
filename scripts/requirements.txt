@@ -1,0 +1,9 @@
+# Requirements for ARIA manifest scripts
+# Usage: pip install -r scripts/requirements.txt
+
+# Core dependencies
+pyyaml>=6.0
+jsonschema>=4.17
+
+# Optional: For development/testing
+toml>=0.10  # For TOML file validation in workflows
