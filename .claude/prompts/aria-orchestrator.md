@@ -232,12 +232,29 @@ HAVING variants > 1;
 # Validate against ARIA consistency policies
 conftest test . --policy .claude/policies/consistency.rego
 
-# Check rules:
+# Validate against configuration enforcement policies
+conftest test . --policy .claude/policies/configuration.rego
+
+# Check consistency rules:
 # - SPEC files must be in docs/
 # - REPORT files must be in docs/reports/
 # - Skill files must be SKILL.md (not README.md)
 # - No broken references
 # - Consistent path casing
+
+# Check configuration rules (HARD GUARDRAILS):
+# - No .tool-versions, .mise.toml, .asdfrc (use Nix + Pixi)
+# - .envrc must contain 'use flake'
+# - flake.nix must use flake-parts + devshell
+# - pixi.toml must use robostack channels for ROS2
+# - Lock files (flake.lock, pixi.lock) must exist
+# - Home-manager modules must use lib.mkDefault/mkOption patterns
+# - DevContainer must include Nix feature
+
+# Quick forbidden file check
+ls .tool-versions .mise.toml .asdfrc .rtx.toml 2>/dev/null && \
+  echo "VIOLATION: Forbidden config files detected (ADR-003)" || \
+  echo "OK: No forbidden config files"
 ```
 
 ### Step 0.4: Task Prompt for Kimi K2
