@@ -1339,3 +1339,43 @@ flowchart TD
     L12 --> L13
     L13 --> I
 ```
+
+---
+
+## 13. Reference Sources
+
+Research papers, configuration references, and external documentation informing this specification are maintained in `docs/ref-sources/`.
+
+### 13.1 Research Documents
+
+| Document | Description | Relevance |
+|----------|-------------|-----------|
+| [Integrating Holochain DNA with ROS2 Humble for Distributed Robotics and XR](docs/ref-sources/Integrating%20Holochain%20DNA%20with%20ROS2%20Humble%20for%20Distributed%20Robotics%20and%20XR.pdf) | Research on Holochain DHT integration with ROS2 for distributed coordination | §9 Holochain Integration, §10 Distributed Resource Orchestration |
+| [Modern Open-Source Database Query Tools (Late 2025 – Present)](docs/ref-sources/Modern%20Open-Source%20Database%20Query%20Tools%20%28Late%202025%20–%20Present%29.pdf) | Survey of database query tools and their applicability | §1.15 Data access + query acceleration |
+
+### 13.2 Configuration References
+
+| Document | Description | Relevance |
+|----------|-------------|-----------|
+| [Ref_NixOS_ Pixi_Configs.md](docs/ref-sources/Ref_NixOS_%20Pixi_Configs.md) | Reference configurations for NixOS and Pixi setup patterns | §1.2-1.3 Host OS & Environment |
+
+### 13.3 Related Documentation
+
+| Document | Location | Purpose |
+|----------|----------|---------|
+| Architecture Decision Records | `docs/adr/` | Formal architectural decisions |
+| Implementation Summaries | `docs/implementation/` | Implementation details |
+| ARIA Audit Reports | `docs/audits/` | System audit findings |
+| LLMOps Documentation | `docs/llmops/` | TensorZero and eval configuration |
+| Quick Start Guides | `docs/*.md` | Setup guides for various components |
+
+### 13.4 Adding New References
+
+When adding research or reference materials:
+
+1. Place files in `docs/ref-sources/`
+2. Update this section with:
+   - Document title and link
+   - Brief description
+   - Relevance to spec sections
+3. Commit with message: `docs(ref-sources): add <document-name>`
