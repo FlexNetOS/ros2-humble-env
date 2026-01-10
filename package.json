@@ -7,9 +7,12 @@
   "scripts": {
     "swc": "swc",
     "swc:build": "swc src -d dist",
-    "swc:watch": "swc src -d dist --watch"
+    "swc:watch": "swc src -d dist --watch",
+    "agents:start": "node agents/index.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.30.0",
+    "@modelcontextprotocol/sdk": "^1.0.0",
     "pixi.js": "^8.0.0"
   },
   "devDependencies": {
@@ -24,8 +27,12 @@
     "build-tools",
     "swc",
     "pixijs",
+    "agents",
+    "anthropic",
+    "mcp",
     "P1-012",
-    "P1-013"
+    "P1-013",
+    "P2-004"
   ],
   "author": "ARIA Build Tools Domain Team",
   "license": "MIT",

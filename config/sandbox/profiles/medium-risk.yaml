@@ -1,0 +1,117 @@
+# Medium Risk Sandbox Profile
+# For untrusted agents with moderate security requirements
+# No network access, limited filesystem, controlled resources
+
+name: medium-risk
+description: Network-isolated environment with restricted filesystem access
+risk_level: medium
+
+# Resource Limits
+resources:
+  memory: 256m
+  cpu: 0.5
+  timeout: 120  # 2 minutes
+  storage: 512m
+
+# Network Configuration
+network:
+  mode: none  # No network access
+  dns: disabled
+  ports: []
+
+# Filesystem Access
+filesystem:
+  readonly_root: true
+  temp_size: 128m
+  allowed_mounts:
+    - /tmp
+  writable_paths:
+    - /tmp
+  blocked_paths:
+    - /proc
+    - /sys
+    - /dev
+    - /etc/passwd
+    - /etc/shadow
+
+# Security Settings
+security:
+  user: "65534:65534"  # nobody:nogroup
+  capabilities:
+    drop:
+      - ALL
+    add: []
+  no_new_privileges: true
+  seccomp: strict
+  apparmor: confined
+  read_only_code: true
+
+# Environment
+environment:
+  allow_custom_env: false
+  default_env:
+    PYTHONUNBUFFERED: "1"
+    TERM: dumb
+    HOME: /tmp
+  restricted_env:
+    - PATH
+    - HOME
+    - USER
+    - SHELL
+
+# Execution Settings
+execution:
+  max_processes: 20
+  allow_compilation: true
+  allow_package_install: false
+  shell_access: limited
+  max_file_descriptors: 64
+
+# Logging and Monitoring
+logging:
+  enabled: true
+  level: debug
+  output: /var/log/sandbox/medium-risk
+  metrics: true
+  audit_syscalls: true
+
+# Language Support
+languages:
+  python:
+    image: python:3.11-alpine
+    allowed_modules:
+      - builtins
+      - math
+      - json
+      - datetime
+      - re
+    blocked_modules:
+      - os
+      - subprocess
+      - socket
+      - requests
+  node:
+    image: node:20-alpine
+    allowed_modules: []
+    blocked_modules:
+      - fs
+      - child_process
+      - net
+      - http
+      - https
+  bash:
+    image: bash:5.2-alpine
+    restricted_commands:
+      - curl
+      - wget
+      - nc
+      - netcat
+  go:
+    image: golang:1.21-alpine
+  rust:
+    image: rust:1.75-alpine
+
+# Rate Limiting
+rate_limits:
+  max_executions_per_hour: 100
+  max_cpu_time_per_hour: 600  # 10 minutes

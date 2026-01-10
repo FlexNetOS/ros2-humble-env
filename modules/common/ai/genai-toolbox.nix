@@ -12,12 +12,13 @@ let
       owner = "googleapis";
       repo = "genai-toolbox";
       rev = "v${version}";
-      hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="; # Placeholder - will fail with correct hash
+      hash = "sha256-JKeW/ydCTZl8JNS2cxOcs9u2C0qm2bCflpvoXUH6ejo=";
     };
 
-    # Use lib.fakeHash to trigger hash calculation on first build
-    # After build fails, replace with the "got:" hash from the error message
-    vendorHash = lib.fakeHash;
+    # vendorHash for Go module dependencies
+    # To get this hash: nix build .#genai-toolbox 2>&1 | grep "got:"
+    # Then replace null with the sha256 value from the error
+    vendorHash = null;  # Uses go.mod/go.sum directly
 
     # The main binary is named 'server' in the repository
     # We'll keep it as 'genai-toolbox' or 'mcp-toolbox' for clarity

@@ -12,7 +12,7 @@
 # Exports to:
 #   - Prometheus (metrics)
 #   - Loki (logs)
-#   - Jaeger/Tempo (traces - when deployed)
+#   - Tempo (distributed traces)
 # =============================================================================
 
 receivers:
@@ -120,9 +120,9 @@ exporters:
     sampling_initial: 5
     sampling_thereafter: 200
 
-  # OTLP exporter for traces (to Jaeger/Tempo when available)
-  otlp/jaeger:
-    endpoint: "jaeger:4317"
+  # OTLP exporter for traces to Tempo
+  otlp/tempo:
+    endpoint: "tempo:4317"
     tls:
       insecure: true
 
@@ -147,7 +147,7 @@ service:
     traces:
       receivers: [otlp]
       processors: [memory_limiter, batch, resource]
-      exporters: [debug]  # Add otlp/jaeger when Jaeger is deployed
+      exporters: [otlp/tempo, debug]
 
     # Metrics pipeline
     metrics:

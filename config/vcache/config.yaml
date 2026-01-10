@@ -1,0 +1,13 @@
+vcache:
+  enabled: true
+  backend: redis
+  redis:
+    host: redis
+    port: 6379
+    db: 1
+  semantic:
+    enabled: true
+    similarity_threshold: 0.92
+    embedding_model: all-MiniLM-L6-v2
+  ttl: 3600
+  max_cache_size: 1GB

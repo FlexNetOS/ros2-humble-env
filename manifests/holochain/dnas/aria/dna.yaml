@@ -1,0 +1,32 @@
+---
+# ARIA DNA
+# Purpose: ARIA agent identity and access management
+# Status: Initial scaffolding (P2-003)
+
+manifest_version: "1"
+name: aria
+uid: "00000000-0000-0000-0000-000000000006"
+properties: ~
+
+# Zome definitions
+zomes:
+  # Integrity zome - Defines data structures and validation rules
+  - name: identity_integrity
+    bundled: zomes/identity_integrity.wasm
+
+  # Coordinator zome - Implements business logic
+  - name: identity
+    bundled: zomes/identity.wasm
+    dependencies:
+      - name: identity_integrity
+
+# Network configuration
+network_seed: ~
+origin_time: 2024-01-01T00:00:00.000000Z
+
+# DNA modifiers (for testing/versioning)
+modifiers:
+  network_seed: ~
+  properties: ~
+  origin_time: ~
+  quantum_time: ~

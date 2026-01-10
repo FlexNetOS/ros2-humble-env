@@ -29,3 +29,31 @@ datasources:
     jsonData:
       timeInterval: "5s"
       httpMethod: "GET"
+
+  - name: Tempo
+    type: tempo
+    access: proxy
+    url: http://tempo:3200
+    editable: false
+    jsonData:
+      httpMethod: "GET"
+      tracesToLogsV2:
+        datasourceUid: "Loki"
+        spanStartTimeShift: "-1h"
+        spanEndTimeShift: "1h"
+        filterByTraceID: true
+        filterBySpanID: false
+        tags: ['service.name', 'service.namespace']
+      tracesToMetrics:
+        datasourceUid: "Prometheus"
+        spanStartTimeShift: "-1h"
+        spanEndTimeShift: "1h"
+        tags: [{ key: 'service.name', value: 'service_name' }]
+      serviceMap:
+        datasourceUid: "Prometheus"
+      nodeGraph:
+        enabled: true
+      search:
+        hide: false
+      lokiSearch:
+        datasourceUid: "Loki"

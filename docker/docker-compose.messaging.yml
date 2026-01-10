@@ -17,13 +17,15 @@ services:
       - "4222:4222"   # Client connections
       - "8222:8222"   # HTTP monitoring
       - "6222:6222"   # Cluster routing
-    command: >
-      --name nats-main
-      --http_port 8222
-      --jetstream
-      --store_dir /data
+    environment:
+      - NATS_ADMIN_PASS=${NATS_ADMIN_PASS:-changeme}
+      - NATS_TEMPORAL_PASS=${NATS_TEMPORAL_PASS:-changeme}
+      - NATS_N8N_PASS=${NATS_N8N_PASS:-changeme}
+      - NATS_AGIXT_PASS=${NATS_AGIXT_PASS:-changeme}
+    command: --config /etc/nats/nats.conf
     volumes:
       - nats_data:/data
+      - ../config/nats:/etc/nats:ro
     networks:
       - agentic-network
     healthcheck:

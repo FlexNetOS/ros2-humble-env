@@ -1,0 +1,281 @@
+# AGiXT Sandbox Integration Configuration
+# P2-001: Integrate sandbox-runtime for Untrusted Agents
+#
+# This configuration integrates the sandbox execution environment with AGiXT
+# to provide secure code execution for AI agents.
+
+# Sandbox Configuration
+sandbox:
+  enabled: true
+  default_risk_level: medium
+
+  # Sandbox Script Paths
+  paths:
+    wrapper_script: /home/user/ros2-humble-env/scripts/sandbox-wrapper.sh
+    agent_script: /home/user/ros2-humble-env/scripts/sandbox-agent.sh
+    profiles_dir: /home/user/ros2-humble-env/config/sandbox/profiles
+    log_dir: /var/log/sandbox
+
+  # Risk Level Mapping
+  # Maps agent trust scores to sandbox risk levels
+  risk_mapping:
+    # Trust score >= 0.8: low risk
+    low_risk_threshold: 0.8
+    # Trust score >= 0.5 and < 0.8: medium risk
+    medium_risk_threshold: 0.5
+    # Trust score < 0.5: high risk
+    high_risk_threshold: 0.0
+
+  # Default Resource Limits (can be overridden per agent)
+  resources:
+    low_risk:
+      memory: 512m
+      cpu: 1.0
+      timeout: 300
+      network: bridge
+    medium_risk:
+      memory: 256m
+      cpu: 0.5
+      timeout: 120
+      network: none
+    high_risk:
+      memory: 128m
+      cpu: 0.25
+      timeout: 60
+      network: none
+
+# AGiXT Integration
+agixt:
+  # Agent Execution Settings
+  execution:
+    # Use sandbox for all code execution
+    use_sandbox: true
+    # Fallback to direct execution if sandbox fails
+    fallback_to_direct: false
+    # Automatically determine risk level based on agent metadata
+    auto_risk_detection: true
+    # Allow agents to request specific risk levels
+    allow_risk_override: false
+
+  # Agent Trust Scoring
+  trust:
+    # Enable trust scoring system
+    enabled: true
+    # Initial trust score for new agents
+    default_score: 0.5
+    # Decay trust on failures
+    decay_on_failure: 0.1
+    # Increase trust on successful executions
+    increase_on_success: 0.05
+    # Maximum trust score
+    max_score: 1.0
+    # Minimum trust score
+    min_score: 0.0
+
+  # Code Analysis
+  analysis:
+    # Scan code for suspicious patterns before execution
+    enabled: true
+    # Block execution if high-risk patterns detected
+    block_on_detection: true
+    # Patterns to detect
+    patterns:
+      - name: network_access
+        regex: '(requests\.|urllib\.|socket\.|http\.)'
+        risk_increase: 0.2
+      - name: file_operations
+        regex: '(open\(|write\(|os\.system|subprocess)'
+        risk_increase: 0.1
+      - name: code_execution
+        regex: '(eval\(|exec\(|__import__)'
+        risk_increase: 0.3
+      - name: sensitive_data
+        regex: '(password|secret|token|api_key)'
+        risk_increase: 0.2
+
+# Language-Specific Settings
+languages:
+  python:
+    enabled: true
+    default_image: python:3.11-slim
+    blocked_modules:
+      high_risk:
+        - os
+        - subprocess
+        - socket
+        - requests
+        - urllib
+      medium_risk:
+        - subprocess
+        - socket
+
+  node:
+    enabled: true
+    default_image: node:20-alpine
+    blocked_modules:
+      high_risk:
+        - fs
+        - child_process
+        - net
+        - http
+        - https
+      medium_risk:
+        - child_process
+        - net
+
+  bash:
+    enabled: true
+    default_image: bash:5.2-alpine
+    blocked_commands:
+      high_risk:
+        - curl
+        - wget
+        - nc
+        - netcat
+        - ssh
+        - scp
+      medium_risk:
+        - curl
+        - wget
+
+  rust:
+    enabled: true
+    default_image: rust:1.75-slim
+    allow_compilation: false  # Disable for high-risk
+
+  go:
+    enabled: true
+    default_image: golang:1.21-alpine
+    allow_compilation: false  # Disable for high-risk
+
+# Monitoring and Logging
+monitoring:
+  # Enable comprehensive logging
+  logging:
+    enabled: true
+    level: info
+    format: json
+    output:
+      - file: /var/log/sandbox/agixt-sandbox.log
+      - stdout: true
+
+  # Metrics collection
+  metrics:
+    enabled: true
+    collect_interval: 60  # seconds
+    metrics:
+      - execution_count
+      - execution_duration
+      - resource_usage
+      - failure_rate
+      - risk_level_distribution
+
+  # Alerting
+  alerts:
+    enabled: true
+    channels:
+      - type: log
+        level: warn
+    conditions:
+      - name: high_failure_rate
+        threshold: 0.5  # 50% failure rate
+        window: 3600  # 1 hour
+      - name: excessive_executions
+        threshold: 100
+        window: 3600
+      - name: resource_limit_exceeded
+        threshold: 0.9  # 90% of limit
+
+# Rate Limiting
+rate_limiting:
+  enabled: true
+  # Per-agent limits
+  per_agent:
+    low_risk:
+      max_executions_per_hour: 500
+      max_cpu_time_per_hour: 3600
+    medium_risk:
+      max_executions_per_hour: 100
+      max_cpu_time_per_hour: 600
+    high_risk:
+      max_executions_per_hour: 20
+      max_cpu_time_per_hour: 180
+  # Global limits
+  global:
+    max_concurrent_executions: 50
+    max_executions_per_hour: 1000
+
+# Security Policies
+security:
+  # Require agent authentication
+  require_authentication: true
+  # Validate agent signatures
+  verify_signatures: false
+  # Audit all executions
+  audit_all: true
+  # Store execution artifacts
+  store_artifacts:
+    enabled: true
+    retention_days: 30
+    path: /var/log/sandbox/artifacts
+
+  # Automatic security responses
+  responses:
+    # Quarantine agents with repeated violations
+    quarantine_on_violations: 3
+    # Ban agents with severe violations
+    ban_on_severe_violations: true
+    # Notify admins on security events
+    notify_admins: true
+
+# Integration Endpoints
+endpoints:
+  # REST API for sandbox execution
+  api:
+    enabled: true
+    host: 0.0.0.0
+    port: 8080
+    base_path: /api/v1/sandbox
+    authentication: bearer
+
+  # Webhook notifications
+  webhooks:
+    enabled: false
+    urls: []
+    events:
+      - execution_started
+      - execution_completed
+      - execution_failed
+      - security_violation
+
+# Docker Configuration
+docker:
+  # Docker daemon settings
+  daemon:
+    socket: /var/run/docker.sock
+    timeout: 300
+
+  # Image management
+  images:
+    auto_pull: true
+    pull_policy: if_not_present
+    allowed_registries:
+      - docker.io
+      - ghcr.io
+
+  # Container settings
+  container:
+    remove_on_exit: true
+    auto_cleanup: true
+    cleanup_interval: 3600
+
+# Development and Testing
+development:
+  # Enable debug mode
+  debug: false
+  # Dry run mode (don't actually execute)
+  dry_run: false
+  # Mock execution results
+  mock_execution: false
+  # Additional logging
+  verbose: false

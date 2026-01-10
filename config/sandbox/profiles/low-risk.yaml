@@ -1,0 +1,81 @@
+# Low Risk Sandbox Profile
+# For trusted or low-risk agent operations
+# Provides basic isolation with network access and reasonable resource limits
+
+name: low-risk
+description: Basic isolation for trusted agents with network access
+risk_level: low
+
+# Resource Limits
+resources:
+  memory: 512m
+  cpu: 1.0
+  timeout: 300  # 5 minutes
+  storage: 1g
+
+# Network Configuration
+network:
+  mode: bridge  # Allow network access
+  dns: auto
+  ports: []  # No port exposure by default
+
+# Filesystem Access
+filesystem:
+  readonly_root: false
+  temp_size: 256m
+  allowed_mounts:
+    - /tmp
+  writable_paths:
+    - /workspace
+    - /tmp
+
+# Security Settings
+security:
+  user: "1000:1000"  # Run as standard user
+  capabilities:
+    drop:
+      - ALL
+    add: []  # No additional capabilities
+  no_new_privileges: true
+  seccomp: default
+  apparmor: default
+
+# Environment
+environment:
+  allow_custom_env: true
+  default_env:
+    PYTHONUNBUFFERED: "1"
+    TERM: xterm-256color
+  restricted_env:
+    - PATH
+    - HOME
+    - USER
+
+# Execution Settings
+execution:
+  max_processes: 50
+  allow_compilation: true
+  allow_package_install: false
+  shell_access: true
+
+# Logging and Monitoring
+logging:
+  enabled: true
+  level: info
+  output: /var/log/sandbox/low-risk
+  metrics: true
+
+# Language Support
+languages:
+  python:
+    image: python:3.11-slim
+    allowed_modules: all
+  node:
+    image: node:20-alpine
+    allowed_modules: all
+  bash:
+    image: bash:5.2-alpine
+  go:
+    image: golang:1.21-alpine
+  rust:
+    image: rust:1.75-slim

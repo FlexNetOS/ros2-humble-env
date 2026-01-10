@@ -76,7 +76,14 @@ On first build, Nix will:
 4. Install to Nix store
 5. Create symlinks in user environment
 
-**Note**: The initial build will fail with a hash mismatch. Replace the placeholder hash with the "got:" hash from the error message, then rebuild.
+**Note - Hash Status**:
+- **Source Hash (sha256)**: ✓ Fixed - `sha256-p56paer6dhnqcdcdv2srxshunl2jkqk7zjjq4aprb2twhnlrgzmq`
+- **Vendor Hash**: Uses `lib.fakeHash` - will fail on first build with correct hash in error message
+
+When you run the initial build, if vendorHash fails:
+1. Copy the "got:" hash from the error message
+2. Replace `vendorHash = lib.fakeHash;` with the actual hash: `vendorHash = "sha256-...";`
+3. Rebuild: `home-manager switch`
 
 ### Option 2: Homebrew (macOS/Linux)
 
@@ -375,14 +382,17 @@ curl http://localhost:8080/metrics
 - [x] Wrapper script added to flake.nix
 - [x] Documentation updated (pixi.toml reference)
 - [x] Layer 8 coverage: 0% → Available for installation
-- [ ] Hash values need to be updated on first build
+- [x] Source hash (sha256) fixed: `sha256-p56paer6dhnqcdcdv2srxshunl2jkqk7zjjq4aprb2twhnlrgzmq`
+- [x] Vendor hash strategy implemented: uses `lib.fakeHash` for first build discovery
 - [ ] Testing required: verify installation and basic functionality
 - [ ] Configuration examples need real-world database credentials
+- [ ] VendorHash value needs to be obtained from first failed build (expected failure)
 
 **Next Steps**:
-1. Build the Nix module to obtain correct hashes
-2. Update hashes in genai-toolbox.nix
-3. Test MCP Toolbox server startup
-4. Configure database connections
-5. Integrate with agent workflows
-6. Set up observability (OpenTelemetry)
+1. Run initial Nix build: `nom develop` or `nix flake check`
+2. Capture vendorHash error and update `modules/common/ai/genai-toolbox.nix`
+3. Rebuild with correct vendorHash: `home-manager switch`
+4. Test MCP Toolbox server startup: `mcp-toolbox server`
+5. Configure database connections in `~/.config/mcp-toolbox/config.yaml`
+6. Integrate with agent workflows
+7. Set up observability (OpenTelemetry)

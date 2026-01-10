@@ -47,6 +47,15 @@
       "manifest": "dnas/memory_shards/dna.yaml",
       "zomes": ["shards", "routing", "sync"],
       "purpose": "Coordinates distributed vector memory across nodes"
+    },
+    "aria": {
+      "name": "aria",
+      "description": "ARIA agent identity and access management",
+      "hash": "uhCkk_placeholder_aria",
+      "status": "scaffolding",
+      "manifest": "dnas/aria/dna.yaml",
+      "zomes": ["identity"],
+      "purpose": "Manages agent identities, credentials, and role-based access control for ARIA agents"
     }
   },
   "dependencies": {
