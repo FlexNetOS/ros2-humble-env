@@ -597,23 +597,36 @@ The following resources are documented but require additional setup:
 
 ### Databases & Storage
 
+> **Reference:** BUILDKIT_STARTER_SPEC.md §1.13, §1.15
+
 | Project | Description | URL |
 |---------|-------------|-----|
+| **postgres** | System-of-record database | [postgres/postgres](https://github.com/postgres/postgres) |
+| **redis** | Cache and sessions | [redis/redis](https://github.com/redis/redis) |
+| **minio** | S3-compatible object store | [minio/minio](https://github.com/minio/minio) |
+| **mindsdb** | AI query layer over data sources | [mindsdb/mindsdb](https://github.com/mindsdb/mindsdb) |
+| **neo4j** | Graph database | [neo4j/neo4j](https://github.com/neo4j/neo4j) |
 | **sqlx** | Rust SQL Toolkit | [launchbadge/sqlx](https://github.com/launchbadge/sqlx) |
 | **neon** | Serverless Postgres | [neondatabase/neon](https://github.com/neondatabase/neon) |
 | **vCache** | Distributed caching | [vcache-project/vCache](https://github.com/vcache-project/vCache) |
 
 ### Monitoring & Observability
 
+> **Reference:** BUILDKIT_STARTER_SPEC.md §1.18
+
 | Project | Description | URL |
 |---------|-------------|-----|
+| **prometheus** | Monitoring and alerting toolkit | [prometheus/prometheus](https://github.com/prometheus/prometheus) |
+| **grafana** | Dashboards and visualization | [grafana/grafana](https://github.com/grafana/grafana) |
+| **loki** | Log aggregation system | [grafana/loki](https://github.com/grafana/loki) |
 | **netdata** | Real-time infrastructure monitoring | [netdata/netdata](https://github.com/netdata/netdata) |
 | **umami** | Privacy-focused web analytics | [umami-software/umami](https://github.com/umami-software/umami) |
-| **prometheus** | Monitoring and alerting toolkit | [prometheus/prometheus](https://github.com/prometheus/prometheus) |
 | **OpenTelemetry** | Observability framework | [open-telemetry](https://github.com/open-telemetry) |
 | **trippy** | Network diagnostic tool | [fujiapple852/trippy](https://github.com/fujiapple852/trippy) |
 
 ### Security & Secrets Management
+
+> **Reference:** BUILDKIT_STARTER_SPEC.md §1.4, §1.8
 
 | Project | Description | URL |
 |---------|-------------|-----|
@@ -622,13 +635,22 @@ The following resources are documented but require additional setup:
 | **vaultwarden** | Bitwarden-compatible server | [dani-garcia/vaultwarden](https://github.com/dani-garcia/vaultwarden) |
 | **keycloak** | Identity and access management | [keycloak/keycloak](https://github.com/keycloak/keycloak) |
 | **OPA** | Open Policy Agent | [open-policy-agent/opa](https://github.com/open-policy-agent/opa) |
+| **step-ca** | PKI automation (mTLS) | [smallstep/cli](https://github.com/smallstep/cli) |
+| **kata-containers** | VM-backed container isolation | [kata-containers/kata-containers](https://github.com/kata-containers/kata-containers) |
+| **firecracker** | MicroVM pools for isolation | [firecracker-microvm/firecracker](https://github.com/firecracker-microvm/firecracker) |
 | **gvisor** | Container sandbox runtime | [githubfoam/gvisor-sandbox](https://github.com/githubfoam/gvisor-sandbox) |
 
 ### DevOps & CI/CD
 
+> **Reference:** BUILDKIT_STARTER_SPEC.md §1.6, §1.9
+
 | Project | Description | URL |
 |---------|-------------|-----|
-| **Argo CD** | GitOps continuous delivery | [FlexNetOS/argo-cd](https://github.com/FlexNetOS/argo-cd) |
+| **Argo CD** | GitOps continuous delivery | [argoproj/argo-cd](https://github.com/argoproj/argo-cd) |
+| **Argo Rollouts** | Canary/blue-green deployments | [argoproj/argo-rollouts](https://github.com/argoproj/argo-rollouts) |
+| **Argo Workflows** | DAG workflow orchestration | [argoproj/argo-workflows](https://github.com/argoproj/argo-workflows) |
+| **bytebase** | Database CI/CD | [bytebase/bytebase](https://github.com/bytebase/bytebase) |
+| **n8n** | Connector workflow automation | [n8n-io/n8n](https://github.com/n8n-io/n8n) |
 | **AppFlowy-Cloud** | Self-hosted Notion alternative backend | [AppFlowy-IO/AppFlowy-Cloud](https://github.com/AppFlowy-IO/AppFlowy-Cloud) |
 | **chirpstack** | LoRaWAN Network Server | [chirpstack/chirpstack](https://github.com/chirpstack/chirpstack) |
 
@@ -640,16 +662,28 @@ The following resources are documented but require additional setup:
 | **rusty-tags** | Ctags generator for Rust | [dan-t/rusty-tags](https://github.com/dan-t/rusty-tags) |
 | **syn** | Rust syntax parsing library | [dtolnay/syn](https://github.com/dtolnay/syn) |
 | **coreutils** | Rust implementation of GNU coreutils | [uutils/coreutils](https://github.com/uutils/coreutils) |
-| **swc** | Rust-based JS/TS compiler | [swc-project/swc](https://github.com/swc-project/swc) |
 | **kellnr** | Private Rust crate registry | [kellnr/kellnr](https://github.com/kellnr/kellnr) |
+| **datafusion** | Rust analytics engine | [apache/datafusion](https://github.com/apache/datafusion) |
 
-### AI Evaluation & Testing
+### JavaScript/TypeScript Build Tools
+
+> **Reference:** BUILDKIT_STARTER_SPEC.md §1.21
 
 | Project | Description | URL |
 |---------|-------------|-----|
+| **swc** | Fast Rust-based JS/TS compiler (20x faster than Babel) | [swc-project/swc](https://github.com/swc-project/swc) |
+| **esbuild** | Extremely fast JS bundler and minifier | [evanw/esbuild](https://github.com/evanw/esbuild) |
+
+### AI Evaluation & Testing
+
+> **Reference:** BUILDKIT_STARTER_SPEC.md §1.16
+
+| Project | Description | URL |
+|---------|-------------|-----|
+| **tensorzero** | LLMOps gateway (evals/experiments/telemetry) | [tensorzero/tensorzero](https://github.com/tensorzero/tensorzero) |
 | **promptfoo** | LLM prompt testing framework | [promptfoo/promptfoo](https://github.com/promptfoo/promptfoo) |
-| **evals** | OpenAI evaluation framework | [openai/evals](https://github.com/openai/evals) |
 | **trulens** | LLM app evaluation & tracking | [truera/trulens](https://github.com/truera/trulens) |
+| **evals** | OpenAI evaluation framework | [openai/evals](https://github.com/openai/evals) |
 
 ### Robotics & Vision
 
