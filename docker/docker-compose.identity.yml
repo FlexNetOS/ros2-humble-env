@@ -8,6 +8,7 @@
 #   - Keycloak: OIDC identity provider
 #   - PostgreSQL: Keycloak database
 #   - Vaultwarden: Bitwarden-compatible password vault (optional)
+#   - HashiCorp Vault: Secrets management and encryption (P0-001)
 #
 # Usage:
 #   # Initialize CA first (one-time):
@@ -20,6 +21,7 @@
 #   - Step-CA: https://localhost:9000 (mTLS certificate authority)
 #   - Keycloak Admin: http://localhost:8080/admin (use KEYCLOAK_ADMIN env vars)
 #   - Vaultwarden: http://localhost:8081 (use VAULTWARDEN_ADMIN_TOKEN env var)
+#   - Vault UI: http://localhost:8200 (use VAULT_DEV_ROOT_TOKEN_ID env var)
 #
 # mTLS Documentation:
 #   - See docs/MTLS_SETUP.md for complete mTLS configuration guide
@@ -176,6 +178,47 @@ services:
       retries: 3
     restart: unless-stopped
 
+  # ---------------------------------------------------------------------------
+  # HashiCorp Vault - Secrets Management
+  # ---------------------------------------------------------------------------
+  # https://github.com/hashicorp/vault
+  # Provides secrets management, encryption, and dynamic credentials (P0-001)
+  vault:
+    image: hashicorp/vault:1.18
+    container_name: vault
+    environment:
+      # Development mode settings (DO NOT use in production)
+      VAULT_DEV_ROOT_TOKEN_ID: ${VAULT_DEV_ROOT_TOKEN_ID:-root}
+      VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
+      # API address
+      VAULT_ADDR: "http://0.0.0.0:8200"
+      # Skip TLS verification in dev mode
+      VAULT_SKIP_VERIFY: "true"
+    volumes:
+      # Vault configuration
+      - ./config/vault:/vault/config
+      # Vault data (only for dev mode)
+      - vault-data:/vault/file
+      # mTLS certificates (mount when available)
+      # - ./config/step-ca/pki/root_ca.crt:/etc/ssl/certs/aria-root-ca.crt:ro
+      # - ./data/certs/vault:/vault/certs:ro
+    ports:
+      - "8200:8200"
+    cap_add:
+      - IPC_LOCK
+    depends_on:
+      step-ca:
+        condition: service_healthy
+    networks:
+      - identity-network
+    healthcheck:
+      test: ["CMD", "vault", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
 networks:
   identity-network:
     driver: bridge
@@ -184,4 +227,6 @@ volumes:
   keycloak-db-data:
     driver: local
   vaultwarden-data:
+    driver: local
+  vault-data:
     driver: local

@@ -15,7 +15,7 @@
 services:
   # PostgreSQL for Temporal persistence
   temporal-postgresql:
-    image: postgres:16-alpine
+    image: postgres:17.2-alpine
     container_name: temporal-postgresql
     restart: unless-stopped
     environment:
@@ -30,7 +30,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - temporal-network
+      - agentic-network
 
   # Temporal Server
   temporal:
@@ -57,7 +57,7 @@ services:
       timeout: 10s
       retries: 5
     networks:
-      - temporal-network
+      - agentic-network
 
   # Temporal Web UI
   temporal-ui:
@@ -72,7 +72,7 @@ services:
     ports:
       - "8088:8080"
     networks:
-      - temporal-network
+      - agentic-network
 
   # Temporal Admin Tools (optional)
   temporal-admin-tools:
@@ -86,11 +86,11 @@ services:
     stdin_open: true
     tty: true
     networks:
-      - temporal-network
+      - agentic-network
 
 volumes:
   temporal-postgres-data:
 
 networks:
-  temporal-network:
-    driver: bridge
+  agentic-network:
+    external: true

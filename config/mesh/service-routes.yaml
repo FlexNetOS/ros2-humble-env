@@ -1,0 +1,35 @@
+# Service Mesh Configuration
+# P0-003: NATS-Temporal-n8n Event Flow
+
+services:
+  nats:
+    network: agentic-network
+    ports:
+      client: 4222
+      monitoring: 8222
+    subscribers:
+      - temporal-worker
+      - n8n-webhook
+      - agixt-agent
+
+  temporal:
+    network: agentic-network
+    ports:
+      grpc: 7233
+      ui: 8088
+    nats_integration:
+      enabled: true
+      subjects:
+        - workflow.started
+        - workflow.completed
+        - activity.failed
+
+  n8n:
+    network: agentic-network
+    ports:
+      http: 5678
+    nats_integration:
+      enabled: true
+      subjects:
+        - automation.trigger
+        - webhook.received
