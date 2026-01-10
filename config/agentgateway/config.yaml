@@ -73,6 +73,31 @@ metrics:
 
 # Security
 security:
+  # JWT Authentication (P1-003)
+  jwt:
+    enabled: true
+    # Keycloak integration
+    issuer: http://keycloak:8080/realms/master
+    audience: kong-gateway
+    # JWKS endpoint for token validation
+    jwks_url: http://keycloak:8080/realms/master/protocol/openid-connect/certs
+    # Token validation settings
+    algorithm: RS256
+    required_claims:
+      - sub
+      - iat
+      - exp
+    # Token extraction
+    header_name: Authorization
+    header_prefix: Bearer
+    # Token caching for performance
+    cache_enabled: true
+    cache_ttl: 300s
+    # Skip JWT validation for specific paths
+    excluded_paths:
+      - /health
+      - /metrics
+
   cors:
     enabled: true
     allowed_origins:

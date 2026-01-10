@@ -1,0 +1,21 @@
+_format_version: "2.1"
+services:
+  - name: api-gateway
+    url: http://agentgateway:8090
+    routes:
+      - name: api-route
+        paths:
+          - /api
+    plugins:
+      - name: oauth2
+        config:
+          scopes:
+            - read
+            - write
+            - admin
+          mandatory_scope: true
+          enable_client_credentials: true
+      - name: rate-limiting
+        config:
+          minute: 100
+          policy: local

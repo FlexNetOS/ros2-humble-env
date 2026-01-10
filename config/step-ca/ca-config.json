@@ -1,0 +1,152 @@
+{
+  "description": "Certificate Authority Configuration for ARIA Platform",
+  "version": "1.0.0",
+  "templates": {
+    "x509": {
+      "leaf": "/home/step/templates/x509/leaf.tpl",
+      "intermediate": "/home/step/templates/x509/intermediate.tpl",
+      "root": "/home/step/templates/x509/root.tpl"
+    }
+  },
+  "certificatePolicies": {
+    "validity": {
+      "minDuration": "5m",
+      "maxDuration": "87600h",
+      "defaultDuration": "8760h"
+    },
+    "keyAlgorithms": {
+      "allowed": ["RSA", "ECDSA", "Ed25519"],
+      "preferred": "ECDSA",
+      "rsaMinKeySize": 2048,
+      "ecdsaCurves": ["P-256", "P-384", "P-521"]
+    },
+    "renewal": {
+      "enableAutoRenewal": true,
+      "renewalThresholdDays": 30,
+      "allowRenewalAfterExpiry": false
+    },
+    "revocation": {
+      "enableCRL": true,
+      "crlUpdateInterval": "24h",
+      "enableOCSP": false
+    }
+  },
+  "serviceTypes": {
+    "identity": {
+      "services": ["keycloak", "vaultwarden", "vault"],
+      "validity": "8760h",
+      "template": "leaf"
+    },
+    "workflow": {
+      "services": ["temporal"],
+      "validity": "8760h",
+      "template": "leaf"
+    },
+    "state": {
+      "services": ["postgres", "redis"],
+      "validity": "8760h",
+      "template": "leaf"
+    },
+    "observability": {
+      "services": ["grafana", "prometheus", "loki", "tempo"],
+      "validity": "8760h",
+      "template": "leaf"
+    },
+    "messaging": {
+      "services": ["nats", "kafka"],
+      "validity": "8760h",
+      "template": "leaf"
+    },
+    "gateway": {
+      "services": ["kong", "traefik"],
+      "validity": "8760h",
+      "template": "leaf"
+    }
+  },
+  "dnsNames": {
+    "patterns": [
+      "*.identity.svc.cluster.local",
+      "*.workflow.svc.cluster.local",
+      "*.state.svc.cluster.local",
+      "*.observability.svc.cluster.local",
+      "*.messaging.svc.cluster.local",
+      "*.gateway.svc.cluster.local",
+      "localhost"
+    ]
+  },
+  "security": {
+    "tls": {
+      "minVersion": "1.2",
+      "maxVersion": "1.3",
+      "preferredCiphers": [
+        "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+        "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+        "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+        "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+        "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+        "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"
+      ],
+      "requireClientCerts": true,
+      "disableRenegotiation": true
+    },
+    "accessControl": {
+      "provisioners": {
+        "admin": {
+          "type": "JWK",
+          "allowedServices": ["all"],
+          "requireApproval": false
+        },
+        "acme": {
+          "type": "ACME",
+          "allowedServices": ["all"],
+          "requireApproval": false
+        },
+        "sshpop": {
+          "type": "SSHPOP",
+          "allowedServices": ["ssh"],
+          "requireApproval": false
+        }
+      }
+    },
+    "auditLog": {
+      "enabled": true,
+      "logPath": "/var/log/step-ca/audit.log",
+      "logLevel": "info",
+      "logEvents": [
+        "certificate.issued",
+        "certificate.renewed",
+        "certificate.revoked",
+        "provisioner.authenticated"
+      ]
+    }
+  },
+  "monitoring": {
+    "healthcheck": {
+      "enabled": true,
+      "endpoint": "/health",
+      "interval": "30s"
+    },
+    "metrics": {
+      "enabled": true,
+      "endpoint": "/metrics",
+      "format": "prometheus"
+    }
+  },
+  "backup": {
+    "enabled": true,
+    "schedule": "0 2 * * *",
+    "retention": "30d",
+    "targets": [
+      "/home/step/pki",
+      "/home/step/db"
+    ]
+  },
+  "notes": [
+    "This configuration defines certificate templates and policies for ARIA services",
+    "Certificate validity periods are set to 1 year (8760h) by default",
+    "Auto-renewal is enabled with a 30-day threshold before expiration",
+    "All services use ECDSA P-256 for signing by default",
+    "mTLS is required for all inter-service communication",
+    "Consult docs/MTLS_SETUP.md for detailed implementation guide"
+  ]
+}

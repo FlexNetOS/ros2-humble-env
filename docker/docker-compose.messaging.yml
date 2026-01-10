@@ -25,7 +25,7 @@ services:
     command: --config /etc/nats/nats.conf
     volumes:
       - nats_data:/data
-      - ./config/nats:/etc/nats:ro
+      - ../config/nats:/etc/nats:ro
     networks:
       - agentic-network
     healthcheck:

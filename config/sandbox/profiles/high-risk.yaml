@@ -1,0 +1,167 @@
+# High Risk Sandbox Profile
+# For untrusted or malicious code with maximum security isolation
+# Full isolation, minimal resources, heavy monitoring
+
+name: high-risk
+description: Maximum security isolation for untrusted code execution
+risk_level: high
+
+# Resource Limits (Minimal)
+resources:
+  memory: 128m
+  cpu: 0.25
+  timeout: 60  # 1 minute
+  storage: 256m
+  pids: 10  # Maximum processes
+
+# Network Configuration
+network:
+  mode: none  # Completely isolated
+  dns: disabled
+  ports: []
+  disable_loopback: true
+
+# Filesystem Access (Heavily Restricted)
+filesystem:
+  readonly_root: true
+  temp_size: 64m
+  allowed_mounts: []  # No mounts allowed
+  writable_paths:
+    - /tmp
+  blocked_paths:
+    - /proc
+    - /sys
+    - /dev
+    - /etc
+    - /var
+    - /usr/bin
+    - /bin
+  noexec_tmp: true
+
+# Security Settings (Maximum Hardening)
+security:
+  user: "65534:65534"  # nobody:nogroup
+  capabilities:
+    drop:
+      - ALL
+    add: []
+  no_new_privileges: true
+  seccomp: strict
+  apparmor: confined
+  read_only_code: true
+  drop_all_caps: true
+  mask_proc: true
+  disable_setuid: true
+
+# Environment (Minimal)
+environment:
+  allow_custom_env: false
+  default_env:
+    TERM: dumb
+    HOME: /tmp
+  restricted_env:
+    - PATH
+    - HOME
+
+# Execution Settings (Heavily Limited)
+execution:
+  max_processes: 5
+  allow_compilation: false  # No compilation allowed
+  allow_package_install: false
+  shell_access: none
+  max_file_descriptors: 16
+  max_file_size: 10m
+  max_open_files: 32
+  disable_fork_bomb: true
+
+# Logging and Monitoring (Comprehensive)
+logging:
+  enabled: true
+  level: trace
+  output: /var/log/sandbox/high-risk
+  metrics: true
+  audit_syscalls: true
+  record_all_output: true
+  alert_on_violations: true
+
+# Language Support (Restricted)
+languages:
+  python:
+    image: python:3.11-alpine
+    interpreter_only: true  # No module imports
+    allowed_modules:
+      - builtins
+      - math
+    blocked_modules:
+      - os
+      - sys
+      - subprocess
+      - socket
+      - requests
+      - urllib
+      - http
+      - ftplib
+      - telnetlib
+      - pickle
+      - shelve
+      - __import__
+      - eval
+      - exec
+      - compile
+  node:
+    image: node:20-alpine
+    restricted: true
+    blocked_modules:
+      - fs
+      - child_process
+      - net
+      - http
+      - https
+      - dgram
+      - cluster
+      - worker_threads
+  bash:
+    image: bash:5.2-alpine
+    restricted_mode: true
+    blocked_commands:
+      - curl
+      - wget
+      - nc
+      - netcat
+      - telnet
+      - ssh
+      - scp
+      - ftp
+      - chmod
+      - chown
+      - mount
+      - umount
+
+# Rate Limiting (Aggressive)
+rate_limits:
+  max_executions_per_hour: 20
+  max_executions_per_day: 100
+  max_cpu_time_per_hour: 180  # 3 minutes
+  cooldown_period: 300  # 5 minutes between executions
+
+# Behavioral Analysis
+monitoring:
+  detect_anomalies: true
+  syscall_monitoring: true
+  network_attempt_detection: true
+  privilege_escalation_detection: true
+  file_access_monitoring: true
+  pattern_matching:
+    - crypto_mining
+    - port_scanning
+    - data_exfiltration
+    - reverse_shells
+
+# Automatic Termination Triggers
+kill_switches:
+  - excessive_cpu_usage
+  - excessive_memory_usage
+  - network_access_attempt
+  - privilege_escalation_attempt
+  - suspicious_syscalls
+  - fork_bomb_detection

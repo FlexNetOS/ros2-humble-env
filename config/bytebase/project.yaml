@@ -1,0 +1,401 @@
+# =============================================================================
+# Bytebase Project Configuration
+# =============================================================================
+# This file defines the project structure for database CI/CD workflows
+# in Bytebase, including environments, databases, and deployment policies.
+# =============================================================================
+
+apiVersion: bytebase.com/v1
+kind: Project
+metadata:
+  name: agentic-systems
+  displayName: Agentic Systems
+  description: Database CI/CD for agentic systems infrastructure
+
+spec:
+  # ---------------------------------------------------------------------------
+  # Project-Level Settings
+  # ---------------------------------------------------------------------------
+  key: AS
+  visibility: private
+
+  # Schema change type enforcement
+  # - DDL: Data Definition Language (schema changes)
+  # - DML: Data Manipulation Language (data changes)
+  schemaChangeType: DDL_DML
+
+  # Workflow settings
+  workflowApprovalPolicy:
+    manual: true  # Require manual approval for changes
+    autoApprove: false
+
+  # ---------------------------------------------------------------------------
+  # Environments Configuration
+  # ---------------------------------------------------------------------------
+  # Define database environments for deployment pipeline
+  environments:
+    # Development Environment - No approval required
+    - name: dev
+      displayName: Development
+      order: 1
+      requireApproval: false
+      description: Development database for active development and testing
+      backupRetention: 7  # days
+
+    # Staging Environment - Owner approval required
+    - name: staging
+      displayName: Staging
+      order: 2
+      requireApproval: true
+      requireApprovalCount: 1
+      description: Staging database for pre-production testing and UAT
+      backupRetention: 30  # days
+
+    # Production Environment - Multiple approvals required
+    - name: prod
+      displayName: Production
+      order: 3
+      requireApproval: true
+      requireApprovalCount: 2
+      requireHighestRoleApproval: true
+      description: Production database for live systems
+      backupRetention: 90  # days
+
+  # ---------------------------------------------------------------------------
+  # Database Management Policies
+  # ---------------------------------------------------------------------------
+  databaseGroupPolicy:
+    # Pattern-based database grouping for organized management
+    namingConventions:
+      - environment: dev
+        pattern: "^dev_.*"
+      - environment: staging
+        pattern: "^staging_.*"
+      - environment: prod
+        pattern: "^prod_.*"
+
+  # ---------------------------------------------------------------------------
+  # Change Management Policies
+  # ---------------------------------------------------------------------------
+  changeManagementPolicy:
+    # SQL review rules for all changes
+    sqlReviewRules:
+      - enabled: true
+        type: statement
+        level: error
+        message: "Multiple ALTER statements in a single transaction"
+
+      - enabled: true
+        type: schema
+        level: warning
+        message: "Missing NOT NULL constraint on foreign keys"
+
+    # DDL (schema change) rules
+    ddlPolicy:
+      allowCreateDatabase: true
+      allowDropDatabase: false  # Prevent accidental drops
+      allowRenameTable: false   # Prevent naming conflicts
+      requireAddColumnWithDefault: true
+      requireBackup: true
+
+    # DML (data change) rules
+    dmlPolicy:
+      allowDeleteWithoutWhere: false
+      allowUpdateWithoutWhere: false
+      requireDataValidation: true
+
+  # ---------------------------------------------------------------------------
+  # Backup and Recovery Policies
+  # ---------------------------------------------------------------------------
+  backupPolicy:
+    backupSchedule: "0 2 * * *"  # Daily at 2 AM UTC
+    backupRetentionDays:
+      dev: 7
+      staging: 30
+      prod: 90
+    pointInTimeRecoveryDays:
+      dev: 7
+      staging: 30
+      prod: 90
+
+  # ---------------------------------------------------------------------------
+  # Risk Management Configuration
+  # ---------------------------------------------------------------------------
+  riskManagement:
+    # High-risk statements that require additional review
+    highRiskStatements:
+      - "DROP TABLE"
+      - "DROP DATABASE"
+      - "ALTER TABLE ... DROP COLUMN"
+      - "TRUNCATE TABLE"
+      - "DELETE FROM .* WHERE 1"  # DELETE without WHERE clause
+
+    # Medium-risk statements that require one-level higher approval
+    mediumRiskStatements:
+      - "ALTER TABLE.*MODIFY"
+      - "UPDATE .* SET"
+      - "CREATE INDEX"
+
+  # ---------------------------------------------------------------------------
+  # Notification and Alerting
+  # ---------------------------------------------------------------------------
+  notifications:
+    # Webhook for change events
+    webhooks:
+      - url: "http://localhost:8080/api/bytebase/webhooks"
+        events:
+          - task.created
+          - task.status_changed
+          - issue.created
+          - issue.status_changed
+
+    # Email notifications for approvers
+    emailNotifications:
+      onApprovalRequired: true
+      onChangeCompleted: true
+      onChangeRollback: true
+
+  # ---------------------------------------------------------------------------
+  # Git Integration (GitOps)
+  # ---------------------------------------------------------------------------
+  vcsIntegration:
+    # Configure Git repository for schema versioning
+    enabled: true
+    # Example configurations (comment out if not using)
+    # provider: github  # github, gitlab, gitee, bitbucket
+    # repository: org/repo
+    # branch: main
+    # sqlDirectory: schema/migrations
+    # baseBranch: main
+
+  # ---------------------------------------------------------------------------
+  # Default SQL Review Rules
+  # ---------------------------------------------------------------------------
+  sqlReviewConfiguration:
+    # Schema standardization rules
+    rules:
+      - id: no_leading_underscore
+        enabled: true
+        level: warning
+        message: "Table names should not start with underscore"
+
+      - id: no_uppercase
+        enabled: true
+        level: warning
+        message: "Use lowercase for table and column names"
+
+      - id: primary_key_required
+        enabled: true
+        level: error
+        message: "Table must have a primary key"
+
+      - id: no_null_in_pk
+        enabled: true
+        level: error
+        message: "Primary key columns cannot be NULL"
+
+      - id: no_large_text_types
+        enabled: true
+        level: warning
+        message: "Avoid TEXT type, use VARCHAR with length limit"
+
+      - id: require_index_on_fk
+        enabled: true
+        level: warning
+        message: "Foreign key columns should be indexed"
+
+  # ---------------------------------------------------------------------------
+  # Access Control
+  # ---------------------------------------------------------------------------
+  accessControl:
+    # Role-based access (defined per environment)
+    roles:
+      - name: database_admin
+        permissions:
+          - create_database
+          - drop_database
+          - backup_database
+          - restore_database
+
+      - name: database_developer
+        permissions:
+          - create_change_request
+          - view_schema
+          - run_sql_queries
+
+      - name: database_owner
+        permissions:
+          - approve_change_request
+          - manage_database_access
+
+      - name: database_reviewer
+        permissions:
+          - review_change_request
+          - comment_on_issue
+
+  # ---------------------------------------------------------------------------
+  # Label Configuration
+  # ---------------------------------------------------------------------------
+  labels:
+    - key: environment
+      values: [dev, staging, prod]
+    - key: team
+      values: [platform, data, analytics]
+    - key: criticality
+      values: [low, medium, high, critical]
+    - key: compliance
+      values: [gdpr, hipaa, pci-dss, sox]
+
+  # ---------------------------------------------------------------------------
+  # Deployment Scheduling
+  # ---------------------------------------------------------------------------
+  deploymentSchedule:
+    # Maintenance windows when changes are allowed
+    maintenanceWindows:
+      - name: standard_maintenance
+        dayOfWeek: wednesday
+        startTime: "22:00"  # 10 PM UTC
+        endTime: "02:00"    # 2 AM UTC
+        timezone: "UTC"
+      - name: emergency_only
+        dayOfWeek: friday
+        saturday: false
+        sunday: true
+        holidays: true
+
+  # ---------------------------------------------------------------------------
+  # Audit and Compliance
+  # ---------------------------------------------------------------------------
+  auditSettings:
+    enabled: true
+    retentionDays: 365
+    logTypes:
+      - schema_change
+      - data_change
+      - access_log
+      - backup_log
+      - approval_log
+
+  # ---------------------------------------------------------------------------
+  # Performance and Optimization
+  # ---------------------------------------------------------------------------
+  performanceSettings:
+    # Thresholds for SQL analysis
+    sqlExecutionTimeoutSeconds: 300
+    schemaValidationTimeoutSeconds: 60
+    backupTimeoutHours: 6
+
+    # Query optimization suggestions
+    enableQueryOptimization: true
+    enableIndexRecommendation: true
+    enableSlowQueryLog: true
+
+---
+# =============================================================================
+# Environment Configuration - Development
+# =============================================================================
+apiVersion: bytebase.com/v1
+kind: DatabaseInstance
+metadata:
+  name: postgres-dev
+  environment: dev
+  project: agentic-systems
+
+spec:
+  engine: PostgreSQL
+  host: postgres  # Docker service name
+  port: 5432
+  database: agentic_dev
+  username: postgres
+  passwordFrom:
+    secretKeyRef:
+      name: postgres-dev
+      key: password
+  description: Development PostgreSQL database
+  maxConnections: 100
+  ssl: false
+  backupRetentionDays: 7
+
+---
+# =============================================================================
+# Environment Configuration - Staging
+# =============================================================================
+apiVersion: bytebase.com/v1
+kind: DatabaseInstance
+metadata:
+  name: postgres-staging
+  environment: staging
+  project: agentic-systems
+
+spec:
+  engine: PostgreSQL
+  host: postgres-staging  # Replace with actual staging host
+  port: 5432
+  database: agentic_staging
+  username: postgres
+  passwordFrom:
+    secretKeyRef:
+      name: postgres-staging
+      key: password
+  description: Staging PostgreSQL database
+  maxConnections: 200
+  ssl: true
+  backupRetentionDays: 30
+
+---
+# =============================================================================
+# Environment Configuration - Production
+# =============================================================================
+apiVersion: bytebase.com/v1
+kind: DatabaseInstance
+metadata:
+  name: postgres-prod
+  environment: prod
+  project: agentic-systems
+
+spec:
+  engine: PostgreSQL
+  host: postgres-prod  # Replace with actual production host
+  port: 5432
+  database: agentic_prod
+  username: postgres
+  passwordFrom:
+    secretKeyRef:
+      name: postgres-prod
+      key: password
+  description: Production PostgreSQL database for live systems
+  maxConnections: 500
+  ssl: true
+  backupRetentionDays: 90
+  requireHighRiskApproval: true
+
+---
+# =============================================================================
+# Database Role Configuration
+# =============================================================================
+apiVersion: bytebase.com/v1
+kind: DatabaseRole
+metadata:
+  name: bytebase-migration
+  database: agentic_dev
+
+spec:
+  username: bytebase_migration
+  passwordFrom:
+    secretKeyRef:
+      name: bytebase-migration
+      key: password
+  attributes:
+    - CREATEDB
+    - NOINHERIT
+  privileges:
+    - resource: SCHEMA
+      privilege:
+        - CREATE
+        - USAGE
+    - resource: TABLE
+      privilege:
+        - SELECT
+        - INSERT
+        - UPDATE
+        - DELETE

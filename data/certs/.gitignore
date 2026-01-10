@@ -1,0 +1,37 @@
+# Certificate Directory - Security Notice
+# ========================================
+# This directory contains TLS certificates and private keys for ARIA services.
+# Private keys must NEVER be committed to version control.
+
+# Ignore all certificate files
+*.crt
+*.cert
+*.pem
+
+# Ignore all private keys (CRITICAL - DO NOT COMMIT)
+*.key
+*.key.*
+*_key
+*.p12
+*.pfx
+*.jks
+
+# Ignore certificate signing requests
+*.csr
+
+# Ignore backups
+*.backup*
+*.bak
+*.old
+
+# Ignore keystores
+keystore
+truststore
+
+# Allow README and configuration
+!README.md
+!.gitignore
+!*.example
+
+# Directory structure placeholder
+!.gitkeep

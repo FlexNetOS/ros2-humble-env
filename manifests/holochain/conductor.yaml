@@ -38,12 +38,12 @@ app_interfaces:
 # Network configuration
 network:
   # Bootstrap service for peer discovery
-  bootstrap_service: "${HOLOCHAIN_BOOTSTRAP_URL:-https://bootstrap.ripple.io/testnet}"
+  bootstrap_service: "${HOLOCHAIN_BOOTSTRAP_URL:-http://holochain-bootstrap:8888}"
 
   # Transport configuration
   transport_pool:
     - type: webrtc
-      signal_url: "${HOLOCHAIN_SIGNAL_URL:-wss://signal.ripple.io/testnet}"
+      signal_url: "${HOLOCHAIN_SIGNAL_URL:-ws://holochain-bootstrap:8888}"
 
   # Network tuning parameters
   tuning_params:
@@ -79,3 +79,20 @@ conductor:
   # Resource limits
   max_concurrent_workflows: 100
   workflow_timeout_ms: 300000  # 5 minutes
+
+# DNA Installation Notes
+#
+# The following DNAs should be installed via the admin interface:
+# 1. agent_registry - Node capability advertisement and discovery
+# 2. resource_mesh - Compute/storage/inference allocation
+# 3. policy_store - Distributed OPA policy cache
+# 4. artifact_index - IPFS CID registry and provenance
+# 5. memory_shards - Vector DB partition coordination
+# 6. aria - ARIA agent identity and access management (NEW)
+#
+# Installation command (example):
+#   hc app install ./manifests/holochain/dnas/aria/aria.dna \
+#     --agent-key <agent-pubkey> \
+#     --installed-app-id aria-identity
+#
+# See: docs/HOLOCHAIN-ZOMES.md for detailed installation instructions

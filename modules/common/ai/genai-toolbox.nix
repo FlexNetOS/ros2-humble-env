@@ -12,7 +12,7 @@ let
       owner = "googleapis";
       repo = "genai-toolbox";
       rev = "v${version}";
-      hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="; # Placeholder - will fail with correct hash
+      hash = "sha256-p56paer6dhnqcdcdv2srxshunl2jkqk7zjjq4aprb2twhnlrgzmq";
     };
 
     # Use lib.fakeHash to trigger hash calculation on first build

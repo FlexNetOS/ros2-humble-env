@@ -1,0 +1,113 @@
+# =============================================================================
+# Grafana Tempo Configuration
+# =============================================================================
+# BUILDKIT_STARTER_SPEC.md Layer 1.18: Distributed Tracing
+#
+# Tempo is a high-volume, minimal-dependency distributed tracing backend.
+# It integrates with OpenTelemetry, Prometheus, and Grafana for end-to-end
+# observability.
+#
+# Documentation: https://grafana.com/docs/tempo/latest/
+# =============================================================================
+
+server:
+  http_listen_port: 3200
+  grpc_listen_port: 9095
+  log_level: info
+
+# Distributor receives traces from OTLP exporters
+distributor:
+  receivers:
+    # OTLP receiver for standard OpenTelemetry protocol
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+
+    # Jaeger receiver for legacy Jaeger clients
+    jaeger:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:14250
+        thrift_http:
+          endpoint: 0.0.0.0:14268
+        thrift_compact:
+          endpoint: 0.0.0.0:6831
+        thrift_binary:
+          endpoint: 0.0.0.0:6832
+
+# Ingester writes incoming traces to storage
+ingester:
+  trace_idle_period: 10s
+  max_block_bytes: 1_000_000
+  max_block_duration: 5m
+
+# Compactor merges and optimizes trace blocks
+compactor:
+  compaction:
+    block_retention: 168h  # 7 days
+    compacted_block_retention: 1h
+    compaction_window: 1h
+    max_compaction_objects: 1000000
+    max_block_bytes: 107374182400  # 100GB
+    retention_concurrency: 10
+
+# Storage configuration
+storage:
+  trace:
+    backend: local
+    wal:
+      path: /tmp/tempo/wal
+    local:
+      path: /tmp/tempo/blocks
+    pool:
+      max_workers: 100
+      queue_depth: 10000
+
+# Query frontend for parallelization and caching
+query_frontend:
+  search:
+    duration_slo: 5s
+    throughput_bytes_slo: 1.073741824e+09  # 1GB/s
+  trace_by_id:
+    duration_slo: 5s
+
+# Metrics generator creates metrics from traces
+metrics_generator:
+  registry:
+    external_labels:
+      source: tempo
+      cluster: flexstack
+  storage:
+    path: /tmp/tempo/generator/wal
+    remote_write:
+      - url: http://prometheus:9090/api/v1/write
+        send_exemplars: true
+
+  # Generate service graphs from traces
+  processor:
+    service_graphs:
+      histogram_buckets: [0.1, 0.2, 0.4, 0.8, 1.6, 3.2, 6.4, 12.8]
+      dimensions: [service.name, http.method, http.status_code]
+
+    # Generate span metrics
+    span_metrics:
+      histogram_buckets: [0.002, 0.004, 0.008, 0.016, 0.032, 0.064, 0.128, 0.256, 0.512, 1.024, 2.048, 4.096, 8.192, 16.384]
+      dimensions:
+        - name: service.name
+        - name: span.kind
+        - name: span.name
+        - name: status.code
+
+# Overrides allow per-tenant configuration
+overrides:
+  defaults:
+    metrics_generator:
+      processors: [service-graphs, span-metrics]
+      generate_native_histograms: both
+
+# Usage reporting (disabled for privacy)
+usage_report:
+  reporting_enabled: false
