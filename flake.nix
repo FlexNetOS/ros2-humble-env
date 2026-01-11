@@ -154,6 +154,29 @@
                 ${optionalString isDarwin "- -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON"}
           '';
 
+          # =================================================================
+          # MODULAR IMPORTS - Split from inline definitions for maintainability
+          # See nix/ directory for source files
+          # =================================================================
+
+          # Import modular packages
+          modularPackages = import ./nix/packages { inherit pkgs lib; };
+
+          # Import modular commands
+          modularCommands = import ./nix/commands { inherit pkgs; };
+
+          # Import modular shell configuration
+          modularShells = import ./nix/shells {
+            inherit pkgs lib system colconDefaults;
+            packages = modularPackages;
+            commands = modularCommands;
+          };
+
+          # =================================================================
+          # LEGACY INLINE DEFINITIONS (kept for backward compatibility)
+          # These will be gradually replaced by modular imports above
+          # =================================================================
+
           # Keep the default shell lightweight for fast `direnv` / `nix develop`.
           # Put heavier/optional tools into `devShells.full`.
           basePackages = with pkgs; [
@@ -3035,7 +3058,8 @@ STATS
           # stays warning-free on newer Nix.
           devShells.default = pkgs.mkShell {
             # Include Holochain in default shell - P2P coordination is mandatory
-            packages = basePackages ++ holochainPackages ++ coreCommandWrappers ++ ros2CommandWrappers ++ devCommandWrappers ++ linuxPackages ++ darwinPackages;
+            # Using modular imports from nix/packages/ and nix/commands/
+            packages = modularPackages.defaultShell ++ modularCommands.defaultShell;
             COLCON_DEFAULTS_FILE = toString colconDefaults;
             EDITOR = "hx";
             VISUAL = "hx";
@@ -3075,19 +3099,8 @@ STATS
 
           # Full-featured shell (slower initial download, more tools)
           devShells.full = pkgs.mkShell {
-            packages =
-              basePackages
-              ++ fullExtras
-              ++ holochainPackages  # P0: Holochain coordination layer
-              ++ coreCommandWrappers
-              ++ ros2CommandWrappers
-              ++ infraCommandWrappers
-              ++ securityCommandWrappers
-              ++ devCommandWrappers
-              ++ workflowCommandWrappers
-              ++ aiCommandWrappers
-              ++ linuxPackages
-              ++ darwinPackages;
+            # Using modular imports from nix/packages/ and nix/commands/
+            packages = modularPackages.fullShell ++ modularCommands.fullShell;
             COLCON_DEFAULTS_FILE = toString colconDefaults;
             EDITOR = "hx";
             VISUAL = "hx";
@@ -3195,7 +3208,8 @@ STATS
           # Requires: NVIDIA GPU with drivers installed
           # Binary cache: https://cache.nixos-cuda.org
           devShells.cuda = pkgs.mkShell {
-            packages = basePackages ++ fullExtras ++ holochainPackages ++ coreCommandWrappers ++ ros2CommandWrappers ++ infraCommandWrappers ++ securityCommandWrappers ++ devCommandWrappers ++ workflowCommandWrappers ++ aiCommandWrappers ++ linuxPackages ++ (with pkgs; [
+            # Using modular imports from nix/packages/ and nix/commands/ plus CUDA-specific packages
+            packages = modularPackages.fullShell ++ modularCommands.fullShell ++ (with pkgs; [
               # CUDA Toolkit 13.x (or latest available)
               # See docs/CONFLICTS.md for version details
               cudaPkgs.cudatoolkit
@@ -3289,7 +3303,8 @@ STATS
           # Usage: nix develop .#identity
           # Heavy dependencies: Java 21, PostgreSQL
           devShells.identity = pkgs.mkShell {
-            packages = basePackages ++ coreCommandWrappers ++ linuxPackages ++ (with pkgs; [
+            # Using modular imports from nix/packages/ and nix/commands/
+            packages = modularPackages.base ++ modularCommands.core ++ modularPackages.linux ++ (with pkgs; [
               # Identity & Access Management
               keycloak             # OAuth2/OIDC identity provider (Java 21)
               vaultwarden          # Bitwarden-compatible password manager (Rust)
