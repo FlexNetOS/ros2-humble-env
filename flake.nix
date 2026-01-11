@@ -155,17 +155,17 @@
           '';
 
           # =================================================================
-          # MODULAR IMPORTS - Split from inline definitions for maintainability
-          # See nix/ directory for source files
+          # MODULAR STRUCTURE - Primary source for packages and commands
+          # All definitions are in nix/ directory for maintainability
           # =================================================================
 
-          # Import modular packages
+          # Import modular packages (nix/packages/)
           modularPackages = import ./nix/packages { inherit pkgs lib; };
 
-          # Import modular commands
+          # Import modular commands (nix/commands/)
           modularCommands = import ./nix/commands { inherit pkgs; };
 
-          # Import modular shell configuration
+          # Import modular shell configuration (nix/shells/)
           modularShells = import ./nix/shells {
             inherit pkgs lib system colconDefaults;
             packages = modularPackages;
@@ -173,8 +173,7 @@
           };
 
           # =================================================================
-          # LEGACY INLINE DEFINITIONS (kept for backward compatibility)
-          # These will be gradually replaced by modular imports above
+          # INLINE DEFINITIONS (legacy - kept for reference, migrate to nix/)
           # =================================================================
 
           # Keep the default shell lightweight for fast `direnv` / `nix develop`.
@@ -3208,7 +3207,7 @@ STATS
           # Requires: NVIDIA GPU with drivers installed
           # Binary cache: https://cache.nixos-cuda.org
           devShells.cuda = pkgs.mkShell {
-            # Using modular imports from nix/packages/ and nix/commands/ plus CUDA-specific packages
+            # Using modular imports plus CUDA-specific packages
             packages = modularPackages.fullShell ++ modularCommands.fullShell ++ (with pkgs; [
               # CUDA Toolkit 13.x (or latest available)
               # See docs/CONFLICTS.md for version details
@@ -3303,8 +3302,8 @@ STATS
           # Usage: nix develop .#identity
           # Heavy dependencies: Java 21, PostgreSQL
           devShells.identity = pkgs.mkShell {
-            # Using modular imports from nix/packages/ and nix/commands/
-            packages = modularPackages.base ++ modularCommands.core ++ modularPackages.linux ++ (with pkgs; [
+            # Using modular imports plus identity-specific packages
+            packages = modularPackages.base ++ modularPackages.linux ++ modularCommands.core ++ (with pkgs; [
               # Identity & Access Management
               keycloak             # OAuth2/OIDC identity provider (Java 21)
               vaultwarden          # Bitwarden-compatible password manager (Rust)
