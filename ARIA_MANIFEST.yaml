@@ -846,6 +846,195 @@ docker_services:
       timeout: 30
     required: false
 
+  # ---------------------------------------------------------------------------
+  # Edge/Gateway Stack - Additional (BUILDKIT_STARTER_SPEC §1.7)
+  # ---------------------------------------------------------------------------
+  - id: agentgateway
+    name: "AgentGateway (MCP Traffic Plane)"
+    category: edge
+    source: "docker/docker-compose.edge.yml"
+    ports: [8080, 9090]
+    verify:
+      type: http
+      url: "http://localhost:9090/health"
+      timeout: 10
+    required: false
+
+  # ---------------------------------------------------------------------------
+  # Automation Stack (BUILDKIT_STARTER_SPEC §1.9)
+  # ---------------------------------------------------------------------------
+  - id: n8n
+    name: "n8n Workflow Automation"
+    category: automation
+    source: "docker/docker-compose.automation.yml"
+    ports: [5678]
+    verify:
+      type: http
+      url: "http://localhost:5678/healthz"
+      timeout: 10
+    required: false
+
+  - id: opa
+    name: "Open Policy Agent"
+    category: automation
+    source: "docker/docker-compose.automation.yml"
+    ports: [8181]
+    verify:
+      type: http
+      url: "http://localhost:8181/health"
+      timeout: 5
+    required: false
+
+  # ---------------------------------------------------------------------------
+  # Identity Stack - Additional (BUILDKIT_STARTER_SPEC §1.8)
+  # ---------------------------------------------------------------------------
+  - id: step-ca
+    name: "Smallstep CA (PKI)"
+    category: identity
+    source: "docker/docker-compose.identity.yml"
+    ports: [9000]
+    verify:
+      type: http
+      url: "http://localhost:9000/health"
+      timeout: 10
+    required: false
+
+  - id: vaultwarden
+    name: "Vaultwarden (Password Vault)"
+    category: identity
+    source: "docker/docker-compose.identity.yml"
+    ports: [8090]
+    verify:
+      type: http
+      url: "http://localhost:8090/alive"
+      timeout: 10
+    required: false
+
+  # ---------------------------------------------------------------------------
+  # AI/Agent Stack - Additional (BUILDKIT_STARTER_SPEC §1.10)
+  # ---------------------------------------------------------------------------
+  - id: agixt
+    name: "AGiXT Orchestration Platform"
+    category: ai
+    source: "docker/docker-compose.agixt.yml"
+    ports: [7437]
+    verify:
+      type: http
+      url: "http://localhost:7437/api/health"
+      timeout: 30
+    required: false
+
+  - id: refact
+    name: "Refact Coding Agent"
+    category: ai
+    source: "docker/docker-compose.refact.yml"
+    ports: [8008]
+    verify:
+      type: http
+      url: "http://localhost:8008/v1/health"
+      timeout: 30
+    required: false
+
+  # ---------------------------------------------------------------------------
+  # DevOps Stack (BUILDKIT_STARTER_SPEC §1.6)
+  # ---------------------------------------------------------------------------
+  - id: bytebase
+    name: "Bytebase DB CI/CD"
+    category: devops
+    source: "docker/docker-compose.bytebase.yml"
+    ports: [5678]
+    verify:
+      type: http
+      url: "http://localhost:5678/api/v1/actuator/health"
+      timeout: 30
+    required: false
+
+  # ---------------------------------------------------------------------------
+  # Observability Stack - Additional (BUILDKIT_STARTER_SPEC §1.18)
+  # ---------------------------------------------------------------------------
+  - id: netdata
+    name: "Netdata Real-time Monitoring"
+    category: observability
+    source: "docker/docker-compose.observability.yml"
+    ports: [19999]
+    verify:
+      type: http
+      url: "http://localhost:19999/api/v1/info"
+      timeout: 10
+    required: false
+
+  - id: umami
+    name: "Umami Product Analytics"
+    category: observability
+    source: "docker/docker-compose.observability.yml"
+    ports: [3001]
+    verify:
+      type: http
+      url: "http://localhost:3001/api/heartbeat"
+      timeout: 10
+    required: false
+
+  - id: tempo
+    name: "Grafana Tempo (Tracing)"
+    category: observability
+    source: "docker/docker-compose.observability.yml"
+    ports: [3200, 4317, 4318]
+    verify:
+      type: http
+      url: "http://localhost:3200/ready"
+      timeout: 10
+    required: false
+
+  - id: alertmanager
+    name: "Prometheus Alertmanager"
+    category: observability
+    source: "docker/docker-compose.observability.yml"
+    ports: [9093]
+    verify:
+      type: http
+      url: "http://localhost:9093/-/healthy"
+      timeout: 5
+    required: false
+
+  - id: otel-collector
+    name: "OpenTelemetry Collector"
+    category: observability
+    source: "docker/docker-compose.observability.yml"
+    ports: [4317, 4318, 8888]
+    verify:
+      type: http
+      url: "http://localhost:8888/metrics"
+      timeout: 10
+    required: false
+
+  # ---------------------------------------------------------------------------
+  # P2P/Coordination Stack (BUILDKIT_STARTER_SPEC §1.14)
+  # ---------------------------------------------------------------------------
+  - id: holochain-conductor
+    name: "Holochain Conductor"
+    category: p2p
+    source: "docker/docker-compose.holochain.yml"
+    ports: [8888, 8889]
+    verify:
+      type: command
+      command: "curl -s localhost:8888/version || echo 'not running'"
+      timeout: 10
+    required: false
+
+  # ---------------------------------------------------------------------------
+  # Caching Stack (BUILDKIT_STARTER_SPEC §1.13)
+  # ---------------------------------------------------------------------------
+  - id: vcache
+    name: "vCache Prompt Cache"
+    category: caching
+    source: "docker/docker-compose.caching.yml"
+    ports: [8080]
+    verify:
+      type: http
+      url: "http://localhost:8080/health"
+      timeout: 10
+    required: false
+
 # =============================================================================
 # COMMAND WRAPPERS (from flake.nix)
 # =============================================================================
